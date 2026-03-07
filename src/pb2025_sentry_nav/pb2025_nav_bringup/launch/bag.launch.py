@@ -56,7 +56,7 @@ def generate_launch_description():
 
     declare_slam_cmd = DeclareLaunchArgument(
         "slam",
-        default_value="False",
+        default_value="True",
         description="Whether run a SLAM. If True, it will disable small_gicp and send static tf (map->odom)",
     )
 
