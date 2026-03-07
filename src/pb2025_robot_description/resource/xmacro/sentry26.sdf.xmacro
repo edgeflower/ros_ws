@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+
+    <!--include defination-->
+    <xmacro_include uri="model://mid360/model.sdf.xmacro" />
+    <xmacro_include uri="model://industrial_camera/model.sdf.xmacro" />
+    <xmacro_include uri="model://rmu26_standard_robot/sentry.def.xmacro" />
+
+    <xmacro_define_value name="global_armor_sticker_type" value="num3" />
+    <!-- 底盘距离水平地面的高度 -->
+    <xmacro_define_value name="chassis_height" value="0.076" />
+
+    <!--sentry model-->
+    <model name="sentry_robot26">
+        <pose>0 0 0.15 0 0 0</pose>
+        <xmacro_block name="rmu26_standard_robot" sticker_type="${global_armor_sticker_type}" chassis_height="${chassis_height}"/>
+        <!--livox-->
+        <xmacro_block name="livox" prefix="front_" parent="gimbal_big" pose="-0.0002 0.01 0.453 3.14 -0 0" update_rate="20" samples="1875"/>
+        <xmacro_block name="industrial_camera" prefix="gimbal_pitch_" parent="gimbal_pitch" pose="0.10327 0.004416 0.044494 0 0 0" update_rate="30" horizontal_fov="1" width="1920" height="1080"/>
+        <!--plugin for joint state sensor-->
+        <plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher">
+        </plugin>
+
+        <!--plugin for light bar-->
+        <plugin filename="LightBarController" name="ignition::gazebo::systems::LightBarController">
+            <controller_name>color</controller_name>
+            <link_visual>armor_0/light_bar_visual</link_visual>
+            <link_visual>armor_1/light_bar_visual</link_visual>
+            <link_visual>armor_2/light_bar_visual</link_visual>
+            <link_visual>armor_3/light_bar_visual</link_visual>
+        </plugin>
+
+        <!--plugin for chassis control-->
+        <plugin filename="MecanumDrive2" name="ignition::gazebo::systems::MecanumDrive2">
+            <chassis_link>chassis</chassis_link>
+            <front_left_joint>chassis_to_wheel_0</front_left_joint>
+            <front_right_joint>chassis_to_wheel_1</front_right_joint>
+            <rear_left_joint>chassis_to_wheel_2</rear_left_joint>
+            <rear_right_joint>chassis_to_wheel_3</rear_right_joint>
+        </plugin>
+
+        <!--plugin for gimbal control-->
+        <plugin filename="ignition-gazebo-joint-controller-system" name="ignition::gazebo::systems::JointController">
+            <joint_name>chassis_to_gimbal_big_joint</joint_name>
+            <use_force_commands>false</use_force_commands>
+            <p_gain>1</p_gain>
+            <i_gain>0.01</i_gain>
+        </plugin>
+
+        <plugin filename="ignition-gazebo-joint-controller-system" name="ignition::gazebo::systems::JointController">
+            <joint_name>gimbal_big_to_gimbal_yaw_joint</joint_name>
+            <use_force_commands>false</use_force_commands>
+            <p_gain>0.2</p_gain>
+            <i_gain>0.01</i_gain>
+        </plugin>
+
+        
+        <plugin filename="ignition-gazebo-joint-controller-system" name="ignition::gazebo::systems::JointController">
+            <joint_name>gimbal_yaw_to_gimbal_pitch_joint</joint_name>
+            <use_force_commands>false</use_force_commands>
+            <p_gain>0.2</p_gain>
+            <i_gain>0.01</i_gain>
+        </plugin>
+
+        
+    </model>
+</sdf>
+
+
