@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <RateController hz="1">
+      <Fallback>
+        <Sequence>
+          <SubRobotStatus topic_name="robot_status"
+                          robot_status="{robot_status}"/>
+          <IsStatusOK message="{robot_status}"
+                      hp_threshold="100"
+                      heat_threshold="350"/>
+          <SendGoal name="Fallback to center"
+                    goal_pose="4.85;-3.34;0; 0;0;0;1"
+                    action_name="/red_standard_robot1/navigate_to_pose"/>
+        </Sequence>
+        <SendGoal name="Retreat"
+                  goal_pose="-0.67;-0.54;0;0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+      </Fallback>
+    </RateController>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="IsStatusOK"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+      <input_port name="hp_threshold"
+                  default="100"/>
+      <input_port name="heat_threshold"
+                  default="350"/>
+    </Action>
+    <Decorator ID="RateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+    <Action ID="SendGoal"
+            editable="true">
+      <input_port name="goal_pose"
+                  default="0;0;0; 0;0;0;1"/>
+      <input_port name="action_name"
+                  default="/red_standard_robot1/navigate_to_pose"/>
+    </Action>
+    <Action ID="SubRobotStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="robot_status"/>
+      <output_port name="robot_status"
+                   default="{robot_status}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

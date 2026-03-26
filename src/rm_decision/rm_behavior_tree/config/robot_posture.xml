@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <RateController hz="1">
+      <Sequence>
+        <SubRobotPosture topic_name="robot_posture_status"
+                          robot_posture_status="{robot_posture_status}"/>
+        <RobotControl stop_gimbal_scan="False"
+                      chassis_spin_vel="0.0"
+                      gimbal_big_yaw_vel="2.7"/>
+        <SetPosture robot_posture_status="{robot_posture_status}"
+                    override="False"/>
+      </Sequence>
+    </RateController>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Decorator ID="RateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+    <Action ID="RobotControl"
+            editable="true">
+      <input_port name="stop_gimbal_scan"
+                  default="True"/>
+      <input_port name="chassis_spin_vel"
+                  default="False"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+    </Action>
+    <Action ID="SetPosture"
+            editable="true">
+      <input_port name="robot_posture_status"
+                  default="{robot_posture_status}"/>
+      <input_port name="override"
+                  default="False"/>
+    </Action>
+    <Action ID="SubRobotPosture"
+            editable="true">
+      <input_port name="topic_name"
+                  default="robot_posture_status"/>
+      <out_port name="robot_posture_status"
+                  default="{robot_posture_status}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

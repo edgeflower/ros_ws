@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <RateController hz="2">
+      <Sequence>
+        <SubRobotStatus topic_name="robot_status"
+                        robot_status="{robot_status}"/>
+        <GetCurrentLocation current_location="{current_location}"/>
+        <IsStatusOK message="{robot_status}"
+                    hp_threshold="100"
+                    heat_threshold="350"/>
+        <SendGoal name="Fallback to center"
+                  goal_pose="4.85;-3.34;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <Fallback>
+          <IsDetectEnemy message="{armors}"/>
+          <MoveAround expected_nearby_goal_count="3"
+                      expected_dis="0.3"
+                      message="{current_location}"/>
+        </Fallback>
+        <Sequence>
+          <SubArmors topic_name="/detector/armors"
+                     armors="{armors}"/>
+          <PickBestArmor armors_message="{armors}"
+                         armor_message="{target_armor}"/>
+          <ArmorToGoal armor_message="{target_armor}"
+                       sentry_message="{current_location}"/>
+        </Sequence>
+      </Sequence>
+    </RateController>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="ArmorToGoal"
+            editable="true">
+      <input_port name="armor_message"
+                  default="{target_armor}"/>
+      <input_port name="sentry_message"
+                  default="{current_location}"/>
+    </Action>
+    <Action ID="GetCurrentLocation"
+            editable="true">
+      <output_port name="current_location"
+                   default="{current_location}"/>
+    </Action>
+    <Action ID="IsDetectEnemy"
+            editable="true">
+      <input_port name="message"
+                  default="{armors}"/>
+    </Action>
+    <Action ID="IsStatusOK"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+      <input_port name="hp_threshold"
+                  default="100"/>
+      <input_port name="heat_threshold"
+                  default="350"/>
+    </Action>
+    <Action ID="MoveAround"
+            editable="true">
+      <input_port name="expected_nearby_goal_count"
+                  default="5"/>
+      <input_port name="expected_dis"
+                  default="0.3"/>
+      <input_port name="message"
+                  default="{current_location}"/>
+    </Action>
+    <Action ID="PickBestArmor"
+            editable="true">
+      <input_port name="armors_message"
+                  default="{armors}"/>
+      <output_port name="armor_message"
+                   default="{target_armor}"/>
+    </Action>
+    <Decorator ID="RateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+    <Action ID="SendGoal"
+            editable="true">
+      <input_port name="goal_pose"
+                  default="0;0;0; 0;0;0;1"/>
+      <input_port name="action_name"
+                  default="/red_standard_robot1/navigate_to_pose"/>
+    </Action>
+    <Action ID="SubArmors"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/detector/armors"/>
+      <output_port name="armors"
+                   default="{armors}"/>
+    </Action>
+    <Action ID="SubRobotStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="robot_status"/>
+      <output_port name="robot_status"
+                   default="{robot_status}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>
