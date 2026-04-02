@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="MainTree">
+
+  <!-- 示例：从黑板读取游戏状态，自动录制 -->
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+      <!-- 先订阅游戏状态到黑板 -->
+      <SubGameStatus topic_name="/game_status" game_status="{game_status}"/>
+
+      <!-- BagRecorder 从黑板读取游戏状态 -->
+      <BagRecorder game_status="{game_status}"
+                   topics="/livox/lidar,/livox/imu"
+                   output_dir="/tmp/rosbags"
+                   bag_prefix="match_data"
+                   end_game_progress="5"/>
+
+      <!-- 其他任务 -->
+      <YourTaskNode/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- 示例：多场比赛录制 -->
+  <BehaviorTree ID="MultiMatchRecording">
+    <Sequence>
+      <SubGameStatus topic_name="/game_status" game_status="{game_status}"/>
+
+      <!-- 第一场比赛 -->
+      <BagRecorder game_status="{game_status}"
+                   topics="/livox/lidar,/livox/imu"
+                   bag_prefix="match1"/>
+
+      <MatchOneTask/>
+
+      <!-- 第二场比赛 -->
+      <BagRecorder game_status="{game_status}"
+                   topics="/livox/lidar,/livox/imu"
+                   bag_prefix="match2"/>
+
+      <MatchTwoTask/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- 示例：使用黑板变量，避免重复订阅 -->
+  <BehaviorTree ID="EfficientRecording">
+    <Sequence>
+      <!-- 只订阅一次，所有节点共享 -->
+      <SubGameStatus topic_name="/game_status" game_status="{game_status}"/>
+
+      <!-- 可以同时使用同一份游戏状态 -->
+      <ReactiveSequence>
+        <BagRecorder game_status="{game_status}"
+                     topics="/livox/lidar,/livox/imu"
+                     bag_prefix="lidar_data"/>
+
+        <YourDecisionNode game_status="{game_status}"/>
+      </ReactiveSequence>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="BagRecorder" editable="true">
+      <input_port name="game_status" default="{game_status}"/>
+      <input_port name="topics" default="/livox/lidar,/livox/imu"/>
+      <input_port name="output_dir" default="/tmp/rosbags"/>
+      <input_port name="bag_prefix" default="record"/>
+      <input_port name="qos_config_path" default=""/>
+      <input_port name="end_game_progress" default="5"/>
+    </Action>
+
+    <Action ID="SubGameStatus" editable="true">
+      <input_port name="topic_name" default="/game_status"/>
+      <output_port name="game_status" default="{game_status}"/>
+    </Action>
+
+    <!-- 占位节点，实际使用时替换为你的节点 -->
+    <Action ID="YourTaskNode"/>
+    <Action ID="MatchOneTask"/>
+    <Action ID="MatchTwoTask"/>
+    <Action ID="YourDecisionNode"/>
+  </TreeNodesModel>
+
+</root>

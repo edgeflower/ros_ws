@@ -1,0 +1,120 @@
+import os  # 导入操作系统接口模块，用于路径拼接
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch_ros.actions import Node , SetRemap , PushRosNamespace
+from launch.actions import DeclareLaunchArgument, GroupAction,ExecuteProcess
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from datetime import datetime
+
+def generate_launch_description():
+
+    bt_config_dir = os.path.join(get_package_share_directory('rm_behavior_tree'), 'config')
+    
+    style = LaunchConfiguration('style')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    log_level = LaunchConfiguration('log_level'),
+
+    bt_xml_dir = PathJoinSubstitution([bt_config_dir, style ]) , ".xml"
+    namespace = LaunchConfiguration('namespace')
+
+    
+    style_cmd = DeclareLaunchArgument(
+            'style',
+            default_value="test000", # attack_robot  defense_robot  test1 test2 test3
+            description="选取哪一个进攻防御方式  map1  test0	test test2	rmul2025_01 test3 "
+        )
+
+    use_sim_time_cmd = DeclareLaunchArgument(
+            'use_sim_time',
+            default_value="false",
+            description="是否启用ros模拟时间"
+        )
+    
+    namespace_cmd = DeclareLaunchArgument(
+            'namespace',
+            default_value="", # red_standard_robot1
+            description="robot namespace"
+    )
+    
+    log_level_cmd = DeclareLaunchArgument(
+            'log_level',
+            default_value="info",
+            description="log level"
+        
+    )
+
+    rm_behavior_tree_node = Node(
+        package='rm_behavior_tree',
+        executable='rm_behavior_tree_me',
+        namespace=namespace,
+        respawn=True,         # 如果节点崩溃则自动重启节点
+        respawn_delay=3,      # 节点重启前等待 3 秒
+        arguments=["--ros-args", "--log-level", log_level],
+        parameters=[
+            {
+                'style': bt_xml_dir,
+                'use_sim_time': use_sim_time,
+            }
+        ],
+        remappings=[
+        ('/tf', 'tf'),
+        ('/tf_static', 'tf_static'),
+    ],
+    )
+    bringup_group = GroupAction(
+        actions=[
+            PushRosNamespace(namespace= namespace),
+            SetRemap('/tf', 'tf'),
+            SetRemap('/tf_static', 'tf_static'),
+            rm_behavior_tree_node,
+        ]
+
+    )
+     
+    bag_base_dir = os.path.expanduser('/home/sentry/Desktop/ros_ws/ros_bag')
+    time_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    bag_folder = os.path.join(bag_base_dir, f'rm_session_{time_str}')
+
+    # 2. 定义需要录制的话题列表
+    # 技巧：录制 /tf_static 和 /rosout 对后期复盘非常有用
+    topics_to_record = [
+        '/livox/lidar',
+        '/livox/imu',
+        '/game_status',
+        "/robot_status",
+        '/tf',
+        '/tf_static',
+        '/cmd_vel_chassis',
+        '/goal_pose',
+    ]
+
+    # 3. 构建 ros2 bag record 命令
+    # --storage mcap: 核心！掉电保护格式，即使非法关机数据也不会损坏
+    # --max-bag-size: 达到 500MB 自动分包，防止单文件过大导致内存压力
+    record_command = [
+        'ros2', 'bag', 'record',
+        '-o', bag_folder,
+        '--storage', 'mcap'
+    ] + topics_to_record
+
+    # 4. 创建执行进程
+    bag_recorder = ExecuteProcess(
+        cmd=record_command,
+        output='screen',
+        # 确保在退出时发送 SIGINT，让 rosbag2 有机会写入 metadata
+        sigterm_timeout='5',
+        sigkill_timeout='5'
+    )
+
+    ld = LaunchDescription()
+    
+    ld.add_action(namespace_cmd)
+    ld.add_action(style_cmd)
+    ld.add_action(use_sim_time_cmd)
+    ld.add_action(log_level_cmd)
+    #ld.add_action(bringup_group)
+    ld.add_action(rm_behavior_tree_node)
+    #ld.add_action(bag_recorder)
+    
+    
+    return ld

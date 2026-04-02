@@ -1,0 +1,10 @@
+rm_sentry_pp_nocrc_serial:
+  ros__parameters:
+    port: /dev/sentry_vid200
+    baud: 115200
+    imu_frame: gimbal_big
+    imu_parent_frame: chassis
+    cmd_topic: cmd_vel_chassis
+    imu_topic: gimbal_big/imu
+    send_period_ms: 5
+    enable_dtr_rts: true

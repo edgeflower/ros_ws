@@ -1,0 +1,32 @@
+<root BTCPP_format="3" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Control ID="RecoveryNode" number_of_retries="2" name="MainNavigateRecovery">
+      
+      <PipelineSequence name="NavigationBranch">
+        <RateController hz="3.0">
+          <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+        </RateController>
+        <Action ID="FollowPath" path="{path}" controller_id="FollowPath"/>
+      </PipelineSequence>
+
+      <Control ID="ReactiveFallback" name="RecoveryActions">
+        <Condition ID="GoalUpdated"/>
+        
+        <Sequence name="ClearCostmapLogic">
+           <Action ID="ClearEntireCostmap" name="ClearLocal" service_name="local_costmap/clear_entirely_local_costmap"/>
+           <Action ID="ClearEntireCostmap" name="ClearGlobal" service_name="global_costmap/clear_entirely_global_costmap"/>
+           </Sequence>
+
+        <Sequence name="SmartBackUpLogic">
+          <Action ID="BackUp" backup_dist="0.8" backup_speed="1.0" name="BackToOpenArea"/>
+          <Action ID="ClearEntireCostmap" service_name="local_costmap/clear_entirely_local_costmap"/>
+        </Sequence>
+
+        <Sequence name="SkipGoal">
+          <Action ID="AlwaysSuccess"/> 
+          </Sequence>
+      </Control>
+
+    </Control>
+  </BehaviorTree>
+</root>

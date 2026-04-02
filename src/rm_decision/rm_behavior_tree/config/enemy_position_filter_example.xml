@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  EnemyPositionFilter + ArmorToGoal Integration Example
+
+  This demonstrates the data processing pipeline:
+
+  Layer 1: EnemyPositionFilter (Data Cleaning Layer)
+    - Smoothes coordinates using EMA (alpha=0.3)
+    - Filters outliers (>1.5m jump detection)
+    - Passes through confidence, tracking, id, etc.
+    - Handles zero values by keeping last valid position
+
+  Layer 2: ArmorToGoal (Goal Conversion Layer)
+    - Receives "clean" coordinates from Filter
+    - Converts enemy position to navigation goal
+    - No offset calculation (direct position)
+
+  Data Flow:
+    raw_target (vision) -> EnemyPositionFilter -> filtered_target -> ArmorToGoal -> goal_pose -> Nav2
+-->
+<root BTCPP_format="4"
+      main_tree_to_execute="enemy_tracking_main">
+
+  <BehaviorTree ID="enemy_tracking_main">
+    <ReactiveSequence name="EnemyTrackingLoop">
+
+      <!-- Step 1: Subscribe to raw target from vision system -->
+      <SubTargetTopic name="SubscribeRawTarget"
+                      topic_name="/target_tracking"
+                      target_message="{raw_target}"/>
+
+      <!-- Step 2: Data Cleaning Layer - Filter out noise and outliers -->
+      <EnemyPositionFilter name="FilterEnemyPosition"
+                          enemy_position="{raw_target}"
+                          filtered_position="{filtered_target}"
+                          alpha="0.3"
+                          max_distance="1.5"
+                          history_size="5"
+                          zero_threshold="0.1"/>
+
+      <!-- Step 3: Convert filtered target to navigation goal -->
+      <ArmorToGoal name="ConvertToGoal"
+                   target_message="{filtered_target}"
+                   goal_pose="{goal}"/>
+
+      <!-- Step 4: Navigate to enemy -->
+      <SendGoal name="NavigateToEnemy"
+               goal_pose="{goal}"
+               action_name="/navigate_to_pose"/>
+
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Alternative: With confidence hysteresis -->
+  <BehaviorTree ID="enemy_tracking_with_hysteresis">
+    <ReactiveSequence>
+      <SubTargetTopic topic_name="/target_tracking" target_message="{raw_target}"/>
+
+      <!-- Data cleaning layer -->
+      <EnemyPositionFilter enemy_position="{raw_target}"
+                          filtered_position="{filtered_target}"/>
+
+      <!-- Confidence hysteresis to prevent mode oscillation -->
+      <ConfidenceHysteresis target="{filtered_target}"
+                            upper_threshold="0.5"
+                            lower_threshold="0.3"
+                            grace_period="1.5"
+                            hysteresis_state="{hysteresis_state}"/>
+
+      <!-- Only navigate when confidence is high -->
+      <CheckHysteresisState state="{hysteresis_state}"
+                           expected_state="HIGH"/>
+
+      <ArmorToGoal target_message="{filtered_target}"
+                   goal_pose="{goal}"/>
+
+      <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Node Models for Groot -->
+  <TreeNodesModel>
+    <Action ID="SubTargetTopic">
+      <input_port name="topic_name" default="/target_tracking"/>
+      <output_port name="target_message" default="{raw_target}"/>
+    </Action>
+
+    <Action ID="EnemyPositionFilter">
+      <input_port name="enemy_position" default="{raw_target}"/>
+      <output_port name="filtered_position" default="{filtered_target}"/>
+      <input_port name="alpha" default="0.3"/>
+      <input_port name="max_distance" default="1.5"/>
+      <input_port name="history_size" default="5"/>
+      <input_port name="zero_threshold" default="0.1"/>
+      <description>
+        Data Cleaning Layer - Filters vision noise.
+
+        Only filters position.x/y, passes through all metadata:
+        - confidence (for ConfidenceHysteresis)
+        - tracking (true/false status)
+        - id (target identification)
+        - armors_num, yaw, velocity, etc.
+      </description>
+    </Action>
+
+    <Action ID="ArmorToGoal">
+      <input_port name="target_message" default="{filtered_target}"/>
+      <output_port name="goal_pose" default="{goal}"/>
+      <description>
+        Goal Conversion Layer - Converts enemy position to navigation goal.
+        Direct use of enemy position, no offset calculation.
+      </description>
+    </Action>
+
+    <Action ID="SendGoal">
+      <input_port name="goal_pose" default="{goal}"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+    <Condition ID="ConfidenceHysteresis">
+      <input_port name="target" default="{filtered_target}"/>
+      <input_port name="upper_threshold" default="0.5"/>
+      <input_port name="lower_threshold" default="0.3"/>
+      <input_port name="grace_period" default="1.5"/>
+      <output_port name="hysteresis_state" default="{hysteresis_state}"/>
+    </Condition>
+
+    <Condition ID="CheckHysteresisState">
+      <input_port name="state" default="{hysteresis_state}"/>
+      <input_port name="expected_state" default="HIGH"/>
+    </Condition>
+  </TreeNodesModel>
+
+</root>

@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Confidence Hysteresis - 防止模式抖动的行为树示例
+
+  核心问题：
+  当敌人置信度在 0.3 附近抖动时，机器人会在"追逐"和"巡逻"模式之间频繁切换。
+
+  解决方案：迟滞逻辑 (Hysteresis)
+  - 引入观察期 (Grace Period)：置信度跌破阈值后，等待 1-2 秒再确认
+  - 观察期内如果置信度回升，立即回到追逐模式
+  - 观察期结束时仍低置信度，才切换到巡逻模式
+
+  状态转换图：
+
+    [HIGH_CONFIDENCE]
+           confidence >= 0.4
+           置信度高，正常追踪
+           |
+           v confidence < 0.4
+    [GRACE_PERIOD] ──────────────── confidence >= 0.4 (立即恢复)
+           观察期 1-2 秒                          |
+           原地等待/保持最后目标                    |
+           |                                        |
+           v elapsed >= 1.5s AND confidence < 0.3   |
+    [LOW_CONFIDENCE]
+           置信度低，切换到巡逻模式
+
+  对应的 BT 节点：
+    - ConfidenceHysteresis: 实现迟滞状态机
+    - HoldPosition: 观察期内保持最后目标，防止机器人停止
+-->
+<root BTCPP_format="4"
+      main_tree_to_execute="hysteresis_main">
+
+  <!-- 主行为树：带有迟滞的敌人追踪 -->
+  <BehaviorTree ID="hysteresis_main">
+    <ReactiveFallback name="EnemyTrackingOrPatrol">
+
+      <!-- ====== 模式1: 追逐模式 (高置信度 + 观察期) ====== -->
+      <ReactiveSequence name="EngageMode">
+
+        <!-- 订阅原始目标 -->
+        <SubTargetTopic name="GetRawTarget"
+                        topic_name="/target_tracking"
+                        target_message="{raw_target}"/>
+
+        <!-- 数据清洗层 -->
+        <EnemyPositionFilter name="FilterTarget"
+                            enemy_position="{raw_target}"
+                            filtered_position="{filtered_target}"/>
+
+        <!-- 核心迟滞逻辑：防止模式抖动 -->
+        <ConfidenceHysteresis name="CheckConfidenceWithHysteresis"
+                               target="{filtered_target}"
+                               upper_threshold="0.4"
+                               lower_threshold="0.3"
+                               grace_period="1.5"
+                               enable_hold_position="true"
+                               current_confidence="{current_confidence}"
+                               hysteresis_state="{hysteresis_state}"/>
+
+        <!-- 获取机器人位姿 -->
+        <GetLocation name="GetRobotPose"
+                     topic_name="/odometry"
+                     robot_location="{robot_pose}"/>
+
+        <!-- 计算偏移目标 -->
+        <ArmorToGoal name="CalculateOffsetGoal"
+                     target_message="{filtered_target}"
+                     goal_pose="{goal}"/>
+
+        <!-- 导航到敌人 -->
+        <SendGoal name="NavigateToEnemy"
+                 goal_pose="{goal}"
+                 action_name="/navigate_to_pose"/>
+      </ReactiveSequence>
+
+      <!-- ====== 模式2: 巡逻模式 (低置信度) ====== -->
+      <Sequence name="PatrolMode">
+
+        <!-- 记录状态转换 -->
+        <LogStateChange name="LogTransitionToPatrol"
+                        new_mode="PATROL"
+                        confidence="{current_confidence}"/>
+
+        <!-- 平滑过渡：停止当前导航 -->
+        <AbortNavigation name="StopCurrentNavigation"
+                        action_name="/navigate_to_pose"/>
+
+        <!-- 短暂等待，确保完全停止 -->
+        <Wait name="StopWait" duration="0.5"/>
+
+        <!-- 执行巡逻逻辑 -->
+        <Patrol name="ExecutePatrol">
+          <!-- 这里可以是你现有的巡逻行为树节点 -->
+          <Sequence>
+            <GetLocation robot_location="{robot_pose}"/>
+            <!-- 示例：访问预设的巡逻点 -->
+            <PatrolPointSelector current_pose="{robot_pose}" patrol_point="{patrol_goal}"/>
+            <SendGoal goal_pose="{patrol_goal}" action_name="/navigate_to_pose"/>
+          </Sequence>
+        </Patrol>
+
+      </Sequence>
+
+    </ReactiveFallback>
+  </BehaviorTree>
+
+  <!-- ====== 简化版：带观察期的追逐 ====== -->
+  <BehaviorTree ID="hysteresis_simple">
+    <ReactiveSequence>
+      <SubTargetTopic topic_name="/target_tracking" target_message="{raw_target}"/>
+      <EnemyPositionFilter enemy_position="{raw_target}"
+                          filtered_position="{filtered_target}"/>
+
+      <!-- 迟滞检查 -->
+      <ConfidenceHysteresis target="{filtered_target}"
+                             upper_threshold="0.4"
+                             lower_threshold="0.3"
+                             grace_period="1.5"
+                             hysteresis_state="{hysteresis_state}"/>
+
+      <GetLocation robot_location="{robot_pose}"/>
+
+      <!-- 在观察期内保持最后目标 -->
+      <Fallback>
+        <!-- 观察期：保持位置 -->
+        <HoldPosition target="{filtered_target}"
+                     enabled="true"
+                     robot_pose="{robot_pose}"
+                     held_goal="{goal}"/>
+        <!-- 正常模式：计算偏移目标 -->
+        <ArmorToGoal target_message="{filtered_target}"
+                     goal_pose="{goal}"/>
+      </Fallback>
+
+      <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- ====== 完整版：观察期 + 平滑过渡 ====== -->
+  <BehaviorTree ID="hysteresis_full">
+    <ReactiveFallback>
+
+      <!-- 分支1: 追逐模式（高置信度或观察期） -->
+      <ReactiveSequence name="EngageMode">
+
+        <!-- 订阅和滤波 -->
+        <Sequence name="AcquireTarget">
+          <SubTargetTopic topic_name="/target_tracking" target_message="{raw_target}"/>
+          <EnemyPositionFilter enemy_position="{raw_target}"
+                              filtered_position="{filtered_target}"/>
+          <GetLocation robot_location="{robot_pose}"/>
+        </Sequence>
+
+        <!-- 迟滞状态机 -->
+        <ConfidenceHysteresis target="{filtered_target}"
+                               upper_threshold="0.4"
+                               lower_threshold="0.3"
+                               grace_period="1.5"
+                               hysteresis_state="{hysteresis_state}"/>
+
+        <!-- 根据迟滞状态选择行为 -->
+        <ReactiveFallback name="EngageOrHold">
+
+          <!-- 状态1: 高置信度 -> 正常追踪 -->
+          <ReactiveSequence name="NormalTracking">
+            <CheckHysteresisState name="IsHighConfidence"
+                                 state="{hysteresis_state}"
+                                 expected_state="HIGH"/>
+            <ArmorToGoal target_message="{filtered_target}"
+                         goal_pose="{goal}"/>
+          </ReactiveSequence>
+
+          <!-- 状态2: 观察期 -> 保持位置等待 -->
+          <ReactiveSequence name="GracePeriodMode">
+            <CheckHysteresisState name="IsGracePeriod"
+                                 state="{hysteresis_state}"
+                                 expected_state="GRACE_PERIOD"/>
+
+            <!-- 观察期内：保持最后的目标点，但不移动 -->
+            <HoldPosition target="{filtered_target}"
+                         enabled="true"
+                         robot_pose="{robot_pose}"
+                         held_goal="{goal}"/>
+
+            <!-- 可选：让云台继续追踪敌人，但底盘不动 -->
+            <KeepGimbalTracking target="{filtered_target}"/>
+
+          </ReactiveSequence>
+
+        </ReactiveFallback>
+
+        <!-- 发送导航目标 -->
+        <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+
+      </ReactiveSequence>
+
+      <!-- 分支2: 巡逻模式（低置信度） -->
+      <ReactiveSequence name="PatrolMode">
+        <CheckHysteresisState name="IsLowConfidence"
+                             state="{hysteresis_state}"
+                             expected_state="LOW"/>
+
+        <!-- 状态转换日志 -->
+        <LogTransition from_state="{hysteresis_state}" to_state="PATROL"/>
+
+        <!-- 平滑过渡：停止当前导航 -->
+        <AbortNavigation action_name="/navigate_to_pose"/>
+
+        <!-- 短暂延迟确保完全停止 -->
+        <Wait duration="0.3"/>
+
+        <!-- 返回最后已知巡逻点或保持当前位置 -->
+        <ReturnToPatrol current_pose="{robot_pose}" patrol_goal="{patrol_goal}"/>
+
+      </ReactiveSequence>
+
+    </ReactiveFallback>
+  </BehaviorTree>
+
+  <!-- ====== 激进模式：更短的观察期 ====== -->
+  <BehaviorTree ID="hysteresis_aggressive">
+    <ReactiveSequence>
+      <SubTargetTopic topic_name="/target_tracking" target_message="{raw_target}"/>
+      <EnemyPositionFilter enemy_position="{raw_target}"
+                          filtered_position="{filtered_target}"/>
+
+      <!-- 激进参数：快速响应 -->
+      <ConfidenceHysteresis target="{filtered_target}"
+                             upper_threshold="0.4"
+                             lower_threshold="0.3"
+                             grace_period="0.8"   <!-- 更短的观察期 -->
+                             hysteresis_state="{hysteresis_state}"/>
+
+      <GetLocation robot_location="{robot_pose}"/>
+
+      <!-- 激进偏移 -->
+      <ArmorToGoal target_message="{filtered_target}"
+                   goal_pose="{goal}"/>
+
+      <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- ====== 保守模式：更长的观察期 ====== -->
+  <BehaviorTree ID="hysteresis_conservative">
+    <ReactiveSequence>
+      <SubTargetTopic topic_name="/target_tracking" target_message="{raw_target}"/>
+      <EnemyPositionFilter enemy_position="{raw_target}"
+                          filtered_position="{filtered_target}"
+                          alpha="0.2"          <!-- 更平滑 -->
+                          max_distance="1.0"/>
+
+      <!-- 保守参数：更长的观察期 -->
+      <ConfidenceHysteresis target="{filtered_target}"
+                             upper_threshold="0.5"  <!-- 更高的上阈值 -->
+                             lower_threshold="0.35"
+                             grace_period="2.5"   <!-- 更长的观察期 -->
+                             hysteresis_state="{hysteresis_state}"/>
+
+      <GetLocation robot_location="{robot_pose}"/>
+
+      <!-- 保守偏移 -->
+      <ArmorToGoal target_message="{filtered_target}"
+                   goal_pose="{goal}"/>
+
+      <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Node Models for Groot -->
+  <TreeNodesModel>
+    <Action ID="SubTargetTopic">
+      <input_port name="topic_name" default="/target_tracking"/>
+      <output_port name="target_message" default="{raw_target}"/>
+    </Action>
+
+    <Action ID="EnemyPositionFilter">
+      <input_port name="enemy_position" default="{raw_target}"/>
+      <output_port name="filtered_position" default="{filtered_target}"/>
+      <input_port name="alpha" default="0.3"/>
+      <input_port name="max_distance" default="1.5"/>
+      <input_port name="history_size" default="5"/>
+    </Action>
+
+    <Condition ID="ConfidenceHysteresis">
+      <input_port name="target" default="{filtered_target}"/>
+      <input_port name="upper_threshold" default="0.4"/>
+      <input_port name="lower_threshold" default="0.3"/>
+      <input_port name="grace_period" default="1.5"/>
+      <input_port name="enable_hold_position" default="true"/>
+      <output_port name="current_confidence" default="{current_confidence}"/>
+      <output_port name="hysteresis_state" default="{hysteresis_state}"/>
+      <description>
+        Confidence Hysteresis - Prevents mode oscillation
+
+        States:
+        - HIGH: confidence >= upper_threshold (0.4), normal tracking
+        - GRACE_PERIOD: confidence dropped below upper, waiting for confirmation
+        - LOW: grace period ended AND confidence still low, switch to patrol
+
+        This prevents rapid chasing/patrol switching when confidence fluctuates around 0.3.
+      </description>
+    </Condition>
+
+    <Action ID="HoldPosition">
+      <input_port name="target" default="{filtered_target}"/>
+      <input_port name="enabled" default="true"/>
+      <input_port name="robot_pose" default="{robot_pose}"/>
+      <output_port name="held_goal" default="{goal}"/>
+      <output_port name="is_holding" default="{is_holding}"/>
+    </Action>
+
+    <Action ID="GetLocation">
+      <input_port name="topic_name" default="/odometry"/>
+      <output_port name="robot_location" default="{robot_pose}"/>
+    </Action>
+
+    <Action ID="ArmorToGoal">
+      <input_port name="target_message" default="{filtered_target}"/>
+      <output_port name="goal_pose" default="{goal}"/>
+    </Action>
+
+    <Action ID="SendGoal">
+      <input_port name="goal_pose" default="{goal}"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+    <Action ID="AbortNavigation">
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+    <Action ID="Wait">
+      <input_port name="duration" default="1.0"/>
+    </Action>
+
+    <Condition ID="CheckHysteresisState">
+      <input_port name="state" default="{hysteresis_state}"/>
+      <input_port name="expected_state" default="HIGH"/>
+    </Condition>
+
+    <Action ID="Patrol">
+      <!-- Your patrol implementation -->
+    </Action>
+
+    <Action ID="PatrolPointSelector">
+      <!-- Your patrol point selector -->
+    </Action>
+
+    <Action ID="ReturnToPatrol">
+      <!-- Your return to patrol logic -->
+    </Action>
+
+    <Action ID="LogStateChange">
+      <input_port name="new_mode"/>
+      <input_port name="confidence"/>
+    </Action>
+
+    <Action ID="LogTransition">
+      <input_port name="from_state"/>
+      <input_port name="to_state"/>
+    </Action>
+
+    <Action ID="KeepGimbalTracking">
+      <input_port name="target" default="{filtered_target}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

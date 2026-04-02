@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <RateController hz="1">
+      <Sequence>
+        <GetLocation topic_name="/red_standard_robot1/odometry"
+                     robot_location="{current_location}"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="1.287;0.0;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="1.418;1.489;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="2.698;1.687;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="2.82;0.18;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="2.7;1.7;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="2.17;2.34;0.0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="1.27;2.90;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="0.25;2.7;0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+        <SendGoal name="SupplyArea"
+                  goal_pose="0.0;0.0;0.0; 0;0;0;1"
+                  action_name="/red_standard_robot1/navigate_to_pose"/>
+      </Sequence>
+    </RateController>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="GetLocation"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/red_standard_robot1/lidar_odometry"/>
+      <output_port name="robot_location"
+                   default="{current_location}"/>
+    </Action>
+    <Decorator ID="RateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+    <Action ID="SendGoal"
+            editable="true">
+      <input_port name="goal_pose"
+                  default="0;0;0; 0;0;0;1"/>
+      <input_port name="action_name"
+                  default="/red_standard_robot1/navigate_to_pose"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

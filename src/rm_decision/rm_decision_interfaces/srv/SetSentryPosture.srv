@@ -1,0 +1,8 @@
+# 用于一次性切换姿态并确认是否成功
+uint8 posture
+bool override_mode
+
+---
+
+bool accepted
+string message

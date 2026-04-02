@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <RobotControl stop_gimbal_scan="True"
+                  chassis_spin_vel="8.0"
+                  gimbal_big_yaw_vel="0.0"
+                  gimbal_big_yaw_angle="0.0"
+                  follow_gimbal_big="0.0"
+                  chassis_vel_multi="3.0"
+                  stop_chassis_vel_multi="True"/>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="RobotControl">
+      <input_port name="stop_gimbal_scan"
+                  default="True"/>
+      <input_port name="chassis_spin_vel"
+                  default="0.0"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+      <input_port name="gimbal_big_yaw_angle"
+                  default="0.785"/>
+      <input_port name="follow_gimbal_big"
+                  default="0.0"/>
+      <input_port name="chassis_vel_multi"
+                  default="1.0"/>
+      <input_port name="stop_chassis_vel_multi"
+                  default="True"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

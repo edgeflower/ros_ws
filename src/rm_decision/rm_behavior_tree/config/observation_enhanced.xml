@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="observation_enhanced">
+  <BehaviorTree ID="observation_enhanced">
+    <Sequence>
+      <GetLocation name="GetRobotPose"
+                   topic_name="/odometry"
+                   robot_location="{robot_pose}"/>
+      <GoalManager robot_pose="{robot_pose}"
+                   lethal_threshold="252"
+                   high_cost_threshold="200"
+                   visit_timeout="30.0"
+                   max_retries="2"
+                   reset_requested="{reset_requested}"
+                   hysteresis_threshold="0.7"
+                   arrival_distance="0.5"
+                   arrival_speed="0.2"
+                   stay_duration="1.0"
+                   min_exclusion_radius="2.0"
+                   best_goal="{best_goal}"
+                   selected_id="{goal_id}"
+                   should_reset="{should_reset}"
+                   idle_count="{idle_count}"
+                   done_count="{done_count}"
+                   goal_statuses="{goal_statuses}"/>
+      <Sequence name="NavigateAndVerify">
+        <SendGoal name="NavigateToObservation"
+                  goal_pose="{best_goal}"
+                  action_name="/navigate_to_pose"/>
+        <RetryUntilSuccessful num_attempts="3">
+          <IsGoalReached name="VerifyGoalReached"
+                         goal_id="{goal_id}"
+                         goal_statuses="{goal_statuses}"
+                         check_current="true"
+                         current_goal_id="{goal_id}"
+                         allow_approximate="false"
+                         robot_pose="{robot_pose}"
+                         current_goal="{goal}"
+                         approximate_distance="0.2"/>
+        </RetryUntilSuccessful>
+      </Sequence>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="GetLocation">
+      <input_port name="topic_name"
+                  default="/odometry"/>
+      <output_port name="robot_location"
+                   default="{robot_pose}"/>
+    </Action>
+    <Action ID="GoalManager">
+      <input_port name="robot_pose"
+                  default="{robot_pose}"/>
+      <input_port name="lethal_threshold"
+                  default="252"/>
+      <input_port name="high_cost_threshold"
+                  default="200"/>
+      <input_port name="visit_timeout"
+                  default="30.0"/>
+      <input_port name="max_retries"
+                  default="2"/>
+      <input_port name="reset_requested"
+                  default="false"/>
+      <input_port name="hysteresis_threshold"
+                  default="0.7"/>
+      <input_port name="arrival_distance"
+                  default="0.5"/>
+      <input_port name="arrival_speed"
+                  default="0.2"/>
+      <input_port name="stay_duration"
+                  default="1.0"/>
+      <input_port name="min_exclusion_radius"
+                  default="2.0"/>
+      <output_port name="best_goal"
+                   default="{best_goal}"/>
+      <output_port name="selected_id"
+                   default="{goal_id}"/>
+      <output_port name="should_reset"
+                   default="{should_reset}"/>
+      <output_port name="idle_count"
+                   default="{idle_count}"/>
+      <output_port name="done_count"
+                   default="{done_count}"/>
+      <output_port name="goal_statuses"
+                   default="{goal_statuses}"/>
+    </Action>
+    <Condition ID="IsGoalReached">
+      <input_port name="goal_id"
+                  default="0"/>
+      <input_port name="goal_statuses"
+                  default="{goal_statuses}"/>
+      <input_port name="check_current"
+                  default="false"/>
+      <input_port name="current_goal_id"
+                  default="0"/>
+      <input_port name="allow_approximate"
+                  default="false"/>
+      <input_port name="robot_pose"
+                  default="{robot_pose}"/>
+      <input_port name="current_goal"
+                  default="{goal}"/>
+      <input_port name="approximate_distance"
+                  default="0.2"/>
+    </Condition>
+    <Action ID="SendGoal">
+      <input_port name="goal_pose"
+                  default="{goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

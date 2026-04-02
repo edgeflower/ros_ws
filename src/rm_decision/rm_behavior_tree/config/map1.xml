@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <Sequence>
+      <SubArmors topic_name="/target_tracking"
+                 armors="{armors}"/>
+      <EnemyPositionFilter enemy_position="{armors}"
+                           alpha="0.2"
+                           max_distance="1.0"
+                           history_size="7"
+                           zero_threshold="0.1"
+                           min_output_interval="0.1"
+                           filtered_position="{filtered_target}"/>
+      <ConfidenceHysteresis target="{filtered_target}"
+                            upper_threshold="0.5"
+                            lower_threshold="0.2"
+                            grace_period="2.5"
+                            enable_hold_position="true"
+                            current_confidence="{current_confidence}"
+                            hysteresis_state="{hysteresis_state}"/>
+      <Sequence>
+        <WhileDoElse>
+          <Fallback>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="HIGH"/>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="GRACE_PERIOD"/>
+          </Fallback>
+          <Sequence>
+            <CancelNavigation action_name="/navigate_to_pose"/>
+            <RobotControl stop_gimbal_scan="True"
+                          chassis_spin_vel="0.0"
+                          gimbal_big_yaw_vel="0.0"/>
+          </Sequence>
+          <SendMyGoal name="NavigateToObservation"
+                      my_goal_pose="5.92473;2.05222;0;0;0;0.105351;0.994435"
+                      action_name="/navigate_to_pose"/>
+        </WhileDoElse>
+        <WhileDoElse>
+          <Fallback>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="HIGH"/>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="GRACE_PERIOD"/>
+          </Fallback>
+          <Sequence>
+            <CancelNavigation action_name="/navigate_to_pose"/>
+            <RobotControl stop_gimbal_scan="True"
+                          chassis_spin_vel="0.0"
+                          gimbal_big_yaw_vel="0.0"/>
+          </Sequence>
+          <SendMyGoal name="NavigateToObservation"
+                      my_goal_pose="7.55348;6.31452;0;0;0;-0.5200;0.85416"
+                      action_name="/navigate_to_pose"/>
+        </WhileDoElse>
+        <WhileDoElse>
+          <Fallback>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="HIGH"/>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="GRACE_PERIOD"/>
+          </Fallback>
+          <Sequence>
+            <RobotControl stop_gimbal_scan="True"
+                          chassis_spin_vel="0.0"
+                          gimbal_big_yaw_vel="0.0"/>
+            <CancelNavigation action_name="/navigate_to_pose"/>
+          </Sequence>
+          <SendMyGoal name="NavigateToObservation"
+                      my_goal_pose="1.77281;6.15745;0;0;0;-0.507379;0.861723"
+                      action_name="/navigate_to_pose"/>
+        </WhileDoElse>
+        <WhileDoElse>
+          <Fallback>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="HIGH"/>
+            <CheckHysteresisState state="{hysteresis_state}"
+                                  expected_state="GRACE_PERIOD"/>
+          </Fallback>
+          <Sequence>
+            <CancelNavigation action_name="/navigate_to_pose"/>
+            <RobotControl stop_gimbal_scan="True"
+                          chassis_spin_vel="0.0"
+                          gimbal_big_yaw_vel="0.0"/>
+          </Sequence>
+          <SendMyGoal name="NavigateToObservation"
+                      my_goal_pose="0.0186658;0.893684;0;0;0;-0.271322;0.962489"
+                      action_name="/navigate_to_pose"/>
+        </WhileDoElse>
+      </Sequence>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="CancelNavigation">
+      <input_port name="action_name"
+                  default="/action_name"/>
+    </Action>
+    <Condition ID="CheckHysteresisState">
+      <input_port name="state"
+                  default="{hysteresis_state}"/>
+      <input_port name="expected_state"
+                  default="HIGH"/>
+    </Condition>
+    <Condition ID="ConfidenceHysteresis">
+      <input_port name="target"
+                  default="{filtered_target}"/>
+      <input_port name="upper_threshold"
+                  default="0.4"/>
+      <input_port name="lower_threshold"
+                  default="0.3"/>
+      <input_port name="grace_period"
+                  default="1.5"/>
+      <input_port name="enable_hold_position"
+                  default="true"/>
+      <output_port name="current_confidence"
+                   default="{current_confidence}"/>
+      <output_port name="hysteresis_state"
+                   default="{hysteresis_state}"/>
+    </Condition>
+    <Action ID="EnemyPositionFilter"
+            editable="true">
+      <input_port name="enemy_position"
+                  default="{armors}"/>
+      <input_port name="alpha"
+                  default="0.3"/>
+      <input_port name="max_distance"
+                  default="1.5"/>
+      <input_port name="history_size"
+                  default="5"/>
+      <input_port name="zero_threshold"
+                  default="0.1"/>
+      <input_port name="min_output_interval"
+                  default="0.1"/>
+      <output_port name="filtered_position"
+                   default="{filtered_position}"/>
+    </Action>
+    <Action ID="RobotControl"
+            editable="true">
+      <input_port name="stop_gimbal_scan"
+                  default="True"/>
+      <input_port name="chassis_spin_vel"
+                  default="0.0"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+    </Action>
+    <Action ID="SendMyGoal">
+      <input_port name="my_goal_pose"
+                  default="{best_goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+    </Action>
+    <Action ID="SubArmors"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/detector/armors"/>
+      <output_port name="armors"
+                   default="{armors}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

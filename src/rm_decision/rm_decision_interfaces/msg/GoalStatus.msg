@@ -1,0 +1,3 @@
+uint32 point_id
+uint8 status
+builtin_interfaces/Time last_visit_time

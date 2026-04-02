@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Enhanced Observation Behavior Tree with Interrupt Logic
+
+  Key Features:
+  1. ReactiveSequence - Allows BT to re-evaluate GoalManager each tick
+  2. Goal Change Detection - Interrupts navigation if new goal is 30%+ better
+  3. Semantic Arrival - Uses proximity + speed instead of timeout
+  4. Failure Penalty - Avoids points that repeatedly fail
+  5. Dual-Source Sync - GoalManager shares state via Blackboard
+
+  Usage:
+    - Set hysteresis_threshold to 0.3 for 30% improvement requirement
+    - Set allow_approximate=true for faster arrival detection
+    - Set robot_speed from odometry for semantic arrival
+-->
+<root BTCPP_format="4"
+      main_tree_to_execute="observation_interrupt">
+
+  <!-- Main Observation Tree with Interrupt Support -->
+  <BehaviorTree ID="observation_interrupt">
+    <ReactiveSequence name="ObservationLoop">
+      <!-- Get current robot pose and speed -->
+      <Sequence name="GetRobotState">
+        <GetLocation name="GetRobotPose"
+                     topic_name="/odometry"
+                     robot_location="{robot_pose}"/>
+        <GetRobotSpeed name="GetRobotSpeed"
+                      topic_name="/odometry"
+                      robot_speed="{robot_speed}"/>
+      </Sequence>
+
+      <!-- Goal Manager with enhanced parameters -->
+      <GoalManager name="SelectObservationGoal"
+                   robot_pose="{robot_pose}"
+                   robot_speed="{robot_speed}"
+                   lethal_threshold="252"
+                   high_cost_threshold="200"
+                   visit_timeout="30.0"
+                   max_retries="2"
+                   hysteresis_threshold="0.3"
+                   arrival_distance="0.5"
+                   arrival_speed="0.1"
+                   stay_duration="1.5"
+                   min_exclusion_radius="1.0"
+                   reset_requested="{reset_requested}"
+                   best_goal="{best_goal}"
+                   selected_id="{goal_id}"
+                   should_reset="{should_reset}"
+                   idle_count="{idle_count}"
+                   done_count="{done_count}"
+                   goal_statuses="{goal_statuses}"/>
+
+      <!-- Check if reset is needed (all points done) -->
+      <Fallback name="ResetCheck">
+        <!-- All points completed - reset and restart -->
+        <Sequence name="ResetAndContinue">
+          <CheckReset name="ShouldReset"
+                     should_reset="{should_reset}"/>
+          <SetBlackboard output_key="reset_requested" value="true"/>
+          <RetryUntilSuccessful num_attempts="5">
+            <GoalManager name="GoalManagerReset"
+                        robot_pose="{robot_pose}"
+                        robot_speed="{robot_speed}"
+                        reset_requested="true"
+                        goal_statuses="{goal_statuses}"/>
+          </RetryUntilSuccessful>
+          <SetBlackboard output_key="reset_requested" value="false"/>
+        </Sequence>
+
+        <!-- Normal navigation flow with goal change detection -->
+        <ReactiveSequence name="NavigateWithInterrupt">
+          <!-- Detect if goal changed (for interrupt) -->
+          <GoalChangeDetector name="DetectGoalChange"
+                             current_goal_id="{goal_id}"
+                             last_goal_id="{last_goal_id}"
+                             goal_changed="{goal_changed}"/>
+
+          <!-- Fallback: Navigate or handle goal change -->
+          <Fallback name="NavigationOrInterrupt">
+            <!-- Goal changed significantly - interrupt and restart -->
+            <Sequence name="HandleGoalInterrupt">
+              <CheckGoalChanged name="CheckInterrupt"
+                               goal_changed="{goal_changed}"/>
+              <AbortNavigation name="AbortCurrentNav"
+                             action_name="/navigate_to_pose"/>
+              <SetBlackboard output_key="last_goal_id" value="{goal_id}"/>
+            </Sequence>
+
+            <!-- Normal navigation flow -->
+            <Sequence name="NavigateAndVerify">
+              <!-- Navigate to selected goal -->
+              <SendGoal name="NavigateToObservation"
+                       goal_pose="{best_goal}"
+                       action_name="/navigate_to_pose"/>
+
+              <!-- Check if goal reached (dual-source sync from Blackboard) -->
+              <Fallback name="GoalReachedCheck">
+                <!-- Primary: Check if GoalManager marked as DONE -->
+                <IsGoalReached name="VerifyGoalStatus"
+                             goal_id="{goal_id}"
+                             goal_statuses="{goal_statuses}"
+                             check_current="true"
+                             current_goal_id="{goal_id}"/>
+
+                <!-- Secondary: Use approximate arrival (faster response) -->
+                <IsGoalReached name="VerifyApproximate"
+                             goal_id="{goal_id}"
+                             goal_statuses="{goal_statuses}"
+                             check_current="true"
+                             current_goal_id="{goal_id}"
+                             robot_pose="{robot_pose}"
+                             current_goal="{best_goal}"
+                             allow_approximate="true"
+                             approximate_distance="0.3"/>
+              </Fallback>
+
+              <!-- Update last_goal_id on success -->
+              <SetBlackboard output_key="last_goal_id" value="{goal_id}"/>
+            </Sequence>
+          </Fallback>
+        </ReactiveSequence>
+      </Fallback>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <!-- GetLocation Action -->
+    <Action ID="GetLocation" editable="true">
+      <input_port name="topic_name" default="/odometry"/>
+      <output_port name="robot_location" default="{robot_pose}"/>
+    </Action>
+
+    <!-- GetRobotSpeed Action (example - needs implementation) -->
+    <Action ID="GetRobotSpeed" editable="true">
+      <input_port name="topic_name" default="/odometry"/>
+      <output_port name="robot_speed" default="{robot_speed}"/>
+    </Action>
+
+    <!-- GoalManager Action with Enhanced Parameters -->
+    <Action ID="GoalManager">
+      <input_port name="robot_pose" default="{robot_pose}"/>
+      <input_port name="robot_speed" default="0.0"/>
+      <input_port name="lethal_threshold" default="252"/>
+      <input_port name="high_cost_threshold" default="200"/>
+      <input_port name="visit_timeout" default="30.0"/>
+      <input_port name="max_retries" default="2"/>
+      <input_port name="hysteresis_threshold" default="0.3"/>
+      <input_port name="arrival_distance" default="0.5"/>
+      <input_port name="arrival_speed" default="0.1"/>
+      <input_port name="stay_duration" default="1.5"/>
+      <input_port name="min_exclusion_radius" default="1.0"/>
+      <input_port name="reset_requested" default="false"/>
+      <output_port name="best_goal" default="{best_goal}"/>
+      <output_port name="selected_id" default="{goal_id}"/>
+      <output_port name="should_reset" default="{should_reset}"/>
+      <output_port name="idle_count" default="{idle_count}"/>
+      <output_port name="done_count" default="{done_count}"/>
+      <output_port name="goal_statuses" default="{goal_statuses}"/>
+    </Action>
+
+    <!-- CheckReset Condition -->
+    <Condition ID="CheckReset">
+      <input_port name="should_reset" default="false"/>
+    </Condition>
+
+    <!-- CheckGoalChanged Condition -->
+    <Condition ID="CheckGoalChanged">
+      <input_port name="goal_changed" default="false"/>
+    </Condition>
+
+    <!-- GoalChangeDetector Action (compares current vs last goal ID) -->
+    <Action ID="GoalChangeDetector">
+      <input_port name="current_goal_id" default="0"/>
+      <input_port name="last_goal_id" default="0"/>
+      <output_port name="goal_changed" default="false"/>
+    </Action>
+
+    <!-- IsGoalReached Condition with Dual-Source Sync -->
+    <Condition ID="IsGoalReached">
+      <input_port name="goal_id" default="0"/>
+      <input_port name="goal_statuses" default="{}"/>
+      <input_port name="check_current" default="false"/>
+      <input_port name="current_goal_id" default="0"/>
+      <input_port name="robot_pose" default="{robot_pose}"/>
+      <input_port name="current_goal" default="{best_goal}"/>
+      <input_port name="allow_approximate" default="false"/>
+      <input_port name="approximate_distance" default="0.2"/>
+    </Condition>
+
+    <!-- SendGoal Action -->
+    <Action ID="SendGoal">
+      <input_port name="goal_pose" default="0;0;0; 0;0;0;1"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+    <!-- AbortNavigation Action (sends preempt to navigation) -->
+    <Action ID="AbortNavigation">
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

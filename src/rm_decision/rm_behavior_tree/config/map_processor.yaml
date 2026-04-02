@@ -1,0 +1,32 @@
+# Map Processor Node Configuration
+map_processor_node:
+  ros__parameters:
+    # Basic parameters
+    map_topic: "/map"
+    sample_step: 1.2              # ↓ 减小采样间隔 (2.0→1.2) 增加点密度
+    robot_radius: 0.3
+    ray_count: 36
+    update_rate: 0.1
+
+    # Distance Transform parameters
+    min_distance_threshold: 0.5  # Minimum distance from obstacle (meters)
+    distance_weight: 0.3          # Weight of distance score in final score (0.0-1.0)
+
+    # NMS (Non-Maximum Suppression) parameters
+    nms_buffer_radius: 0.6        # ↓ 减小 NMS 半径 (1.0→0.6) 允许更密集的点
+    enable_nms: true              # Enable/disable NMS
+
+    # Unknown region handling
+    treat_unknown_as_obstacle: true  # Treat unknown (-1) as obstacle
+
+    # Performance parameters
+    use_bresenham_ray_casting: true  # Use Bresenham algorithm for ray casting
+
+    # Ray coverage parameters
+    min_coverage_ratio: 0.4       # ↓ 降低覆盖率要求 (0.5→0.4) 保留更多点
+
+    # Observation point filtering
+    score_threshold: 0.10         # ↓ 降低分数阈值 (0.2→0.10) 大幅增加点数量
+                                  # Lower values = more observation points (may include lower quality positions)
+                                  # Higher values = fewer observation points (only high quality positions)
+                                  # Recommended range: 0.1 - 0.3

@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="Liu">
+  <BehaviorTree ID="Liu">
+    <ReactiveSequence>
+      <SubRobotStatus topic_name="/robot_status"
+                      robot_status="{robot_status}"/>
+      <SubGameStatus topic_name="/game_status"
+                     game_status="{game_status}"/>
+      <SubArmors topic_name="/target_tracking"
+                 armors="{armors}"/>
+      <EnemyPositionFilter enemy_position="{armors}"
+                           alpha="0.2"
+                           max_distance="1.0"
+                           history_size="7"
+                           zero_threshold="0.1"
+                           min_output_interval="0.1"
+                           confidence_half_life="1.0"
+                           min_confidence="0.0"
+                           filtered_position="{filtered_target}"/>
+      <ConfidenceHysteresis target="{filtered_target}"
+                            upper_threshold="0.5"
+                            lower_threshold="0.2"
+                            grace_period="2.5"
+                            enable_hold_position="true"
+                            current_confidence="{current_confidence}"
+                            hysteresis_state="{hysteresis_state}"/>
+      <AsyncFallback>
+        <IsGameTime message="{game_status}"
+                    game_progress="4"
+                    lower_remain_time="0"
+                    higher_remain_time="10000"/>
+        <IsAttacked message="{robot_status}"/>
+      </AsyncFallback>
+      <IfThenElse>
+        <IsStatusOK message="{robot_status}"
+                    hp_threshold="160"
+                    heat_threshold="0"/>
+        <Parallel failure_count="1"
+                  success_count="1">
+          <KeepRunningUntilFailure>
+            <ReactiveFallback name="ModeSelector">
+              <ReactiveSequence>
+                <CheckHysteresisState state="{hysteresis_state}"
+                                      expected_state="HIGH"/>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="0.5"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="0.0"
+                              follow_gimbal_big="0.0"
+                              chassis_vel_multi="0.4"
+                              stop_chassis_vel_multi="False"/>
+              </ReactiveSequence>
+              <ReactiveSequence>
+                <CheckHysteresisState state="{hysteresis_state}"
+                                      expected_state="GRACE_PERIOD"/>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="0.5"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="0.0"
+                              follow_gimbal_big="0.0"
+                              chassis_vel_multi="0.8"
+                              stop_chassis_vel_multi="False"/>
+              </ReactiveSequence>
+              <ReactiveSequence>
+                <CheckHysteresisState state="{hysteresis_state}"
+                                      expected_state="LOW"/>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="0.5"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="0.0"
+                              follow_gimbal_big="1.0"
+                              chassis_vel_multi="1.0"
+                              stop_chassis_vel_multi="False"/>
+              </ReactiveSequence>
+            </ReactiveFallback>
+          </KeepRunningUntilFailure>
+          <Sequence>
+            <ForceSuccess>
+              <Fallback>
+                <Sequence>
+                  <RobotControl stop_gimbal_scan="True"
+                                chassis_spin_vel="0.5"
+                                gimbal_big_yaw_vel="0.0"
+                                gimbal_big_yaw_angle="-1.57"
+                                follow_gimbal_big="0"
+                                chassis_vel_multi="1.0"
+                                stop_chassis_vel_multi="True"/>
+                  <SendMyGoal name="NavigateToObservation"
+                              my_goal_pose="0.5621;-4.68364;0;0;0;-0.599423;0.800433"
+                              action_name="/navigate_to_pose"
+                              goal_id="1"
+                              max_visits="1"
+                              stall_threshold="0.2"
+                              stall_check_interval="2.0"
+                              min_distance_for_stall="0.5"/>
+                </Sequence>
+                <Sequence>
+                  <ClearCostmap name="ClearLocalCostmap"
+                                service_name="local_costmap/clear_entirely_local_costmap"/>
+                  <ClearCostmap name="ClearLocalCostmap"
+                                service_name="global_costmap/clear_entirely_global_costmap"/>
+                  <BackUp backup_dist="0.5"
+                          backup_speed="0.5"
+                          time_allowance="2.0"
+                          server_name="backup"/>
+                </Sequence>
+              </Fallback>
+            </ForceSuccess>
+            <ForceSuccess>
+              <Sequence>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="1.0"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="0.785"
+                              follow_gimbal_big="0.0"
+                              chassis_vel_multi="1.0"
+                              stop_chassis_vel_multi="True"/>
+                <SendMyGoal name="NavigateToObservation"
+                            my_goal_pose="4.50601;-4.83459;0;0;0;-0.022712;0.999742"
+                            action_name="/navigate_to_pose"
+                            goal_id="2"
+                            max_visits="1"
+                            stall_threshold="0.2"
+                            stall_check_interval="2.0"
+                            min_distance_for_stall="0.5"/>
+              </Sequence>
+            </ForceSuccess>
+            <ForceSuccess>
+              <Sequence>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="1.0"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="1.57"
+                              follow_gimbal_big="0.0"
+                              chassis_vel_multi="1.0"
+                              stop_chassis_vel_multi="True"/>
+                <SendMyGoal name="NavigateToObservation"
+                            my_goal_pose="5.67713;-4.8855;0;0;0;-0.22631;0.974055"
+                            action_name="/navigate_to_pose"
+                            goal_id="3"
+                            max_visits="1000"
+                            stall_threshold="0.2"
+                            stall_check_interval="2.0"
+                            min_distance_for_stall="0.5"/>
+              </Sequence>
+            </ForceSuccess>
+            <Repeat num_cycles="1000">
+              <Sequence>
+                <ForceSuccess>
+                  <Sequence>
+                    <RobotControl stop_gimbal_scan="True"
+                                  chassis_spin_vel="0.5"
+                                  gimbal_big_yaw_vel="0.0"
+                                  gimbal_big_yaw_angle="1.57"
+                                  follow_gimbal_big="0.0"
+                                  chassis_vel_multi="1.0"
+                                  stop_chassis_vel_multi="True"/>
+                    <SendMyGoal name="NavigateToObservation"
+                                my_goal_pose="4.94981;-1.04807;0;0;0;-0.00281009;0.999996"
+                                action_name="/navigate_to_pose"
+                                goal_id="4"
+                                max_visits="1000"
+                                stall_threshold="0.2"
+                                stall_check_interval="2.0"
+                                min_distance_for_stall="0.5"/>
+                  </Sequence>
+                </ForceSuccess>
+                <ForceSuccess>
+                  <Sequence>
+                    <RobotControl stop_gimbal_scan="True"
+                                  chassis_spin_vel="0.5"
+                                  gimbal_big_yaw_vel="0.0"
+                                  gimbal_big_yaw_angle="-1.57"
+                                  follow_gimbal_big="0.0"
+                                  chassis_vel_multi="1.0"
+                                  stop_chassis_vel_multi="True"/>
+                    <SendMyGoal name="NavigateToObservation"
+                                my_goal_pose="3.74664;-1.049054;0;0;0;-0.12415;0.992263"
+                                action_name="/navigate_to_pose"
+                                goal_id="5"
+                                max_visits="1000"
+                                stall_threshold="0.2"
+                                stall_check_interval="2.0"
+                                min_distance_for_stall="0.5"/>
+                  </Sequence>
+                </ForceSuccess>
+                <ForceSuccess>
+                  <Sequence>
+                    <RobotControl stop_gimbal_scan="True"
+                                  chassis_spin_vel="0.5"
+                                  gimbal_big_yaw_vel="0.0"
+                                  gimbal_big_yaw_angle="-0.385"
+                                  follow_gimbal_big="0.0"
+                                  chassis_vel_multi="1.0"
+                                  stop_chassis_vel_multi="True"/>
+                    <SendMyGoal name="NavigateToObservation"
+                                my_goal_pose="4.50601;-4.83459;0;0;0;-0.022712;0.999742"
+                                action_name="/navigate_to_pose"
+                                goal_id="2"
+                                max_visits="1000"
+                                stall_threshold="0.2"
+                                stall_check_interval="2.0"
+                                min_distance_for_stall="0.5"/>
+                  </Sequence>
+                </ForceSuccess>
+              </Sequence>
+            </Repeat>
+          </Sequence>
+        </Parallel>
+        <ForceSuccess>
+          <Sequence>
+            <RobotControl stop_gimbal_scan="True"
+                          chassis_spin_vel="0.0"
+                          gimbal_big_yaw_vel="0.0"
+                          gimbal_big_yaw_angle="0.0"
+                          follow_gimbal_big="0"
+                          chassis_vel_multi="1.0"
+                          stop_chassis_vel_multi="True"/>
+            <SendMyGoal name="NavigateToObservation"
+                        my_goal_pose="0.1;0.3;0;0;0;-0.227012;0.973892"
+                        action_name="/navigate_to_pose"
+                        goal_id="5"
+                        max_visits="1000"
+                        stall_threshold="0.2"
+                        stall_check_interval="2.0"
+                        min_distance_for_stall="0.5"/>
+            <Wait duration="5"/>
+          </Sequence>
+        </ForceSuccess>
+      </IfThenElse>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="BackUp"
+            editable="true">
+      <input_port name="backup_dist"/>
+      <input_port name="backup_speed"/>
+      <input_port name="time_allowance"/>
+      <input_port name="server_name"/>
+    </Action>
+    <Condition ID="CheckHysteresisState">
+      <input_port name="state"
+                  default="{hysteresis_state}"/>
+      <input_port name="expected_state"
+                  default="HIGH"/>
+    </Condition>
+    <Action ID="ClearCostmap"
+            editable="true">
+      <input_port name="service_name"/>
+    </Action>
+    <Condition ID="ConfidenceHysteresis">
+      <input_port name="target"
+                  default="{filtered_target}"/>
+      <input_port name="upper_threshold"
+                  default="0.4"/>
+      <input_port name="lower_threshold"
+                  default="0.3"/>
+      <input_port name="grace_period"
+                  default="1.5"/>
+      <input_port name="enable_hold_position"
+                  default="true"/>
+      <output_port name="current_confidence"
+                   default="{current_confidence}"/>
+      <output_port name="hysteresis_state"
+                   default="{hysteresis_state}"/>
+    </Condition>
+    <Action ID="EnemyPositionFilter"
+            editable="true">
+      <input_port name="enemy_position"
+                  default="{armors}"/>
+      <input_port name="alpha"
+                  default="0.3"/>
+      <input_port name="max_distance"
+                  default="1.5"/>
+      <input_port name="history_size"
+                  default="5"/>
+      <input_port name="zero_threshold"
+                  default="0.1"/>
+      <input_port name="min_output_interval"
+                  default="0.1"/>
+      <input_port name="confidence_half_life"
+                  default="1.0"/>
+      <input_port name="min_confidence"
+                  default="0.0"/>
+      <output_port name="filtered_position"
+                   default="{filtered_position}"/>
+    </Action>
+    <Action ID="IsAttacked"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+    </Action>
+    <Action ID="IsGameTime"
+            editable="true">
+      <input_port name="message"
+                  default="{game_status}"/>
+      <input_port name="game_progress"
+                  default="4"/>
+      <input_port name="lower_remain_time"
+                  default="0"/>
+      <input_port name="higher_remain_time"
+                  default="300"/>
+    </Action>
+    <Action ID="IsStatusOK"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+      <input_port name="hp_threshold"
+                  default="100"/>
+      <input_port name="heat_threshold"
+                  default="350"/>
+    </Action>
+    <Action ID="RobotControl">
+      <input_port name="stop_gimbal_scan"
+                  default="True"/>
+      <input_port name="chassis_spin_vel"
+                  default="0.0"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+      <input_port name="gimbal_big_yaw_angle"
+                  default="0.785"/>
+      <input_port name="follow_gimbal_big"
+                  default="0.0"/>
+      <input_port name="chassis_vel_multi"
+                  default="1.0"/>
+      <input_port name="stop_chassis_vel_multi"
+                  default="True"/>
+    </Action>
+    <Action ID="SendMyGoal">
+      <input_port name="my_goal_pose"
+                  default="{best_goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+      <input_port name="goal_id"
+                  default="1"/>
+      <input_port name="max_visits"
+                  default="1"/>
+      <input_port name="stall_threshold"
+                  default="0.2"/>
+      <input_port name="stall_check_interval"
+                  default="2.0"/>
+      <input_port name="min_distance_for_stall"
+                  default="0.5"/>
+    </Action>
+    <Action ID="SubArmors"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/detector/armors"/>
+      <output_port name="armors"
+                   default="{armors}"/>
+    </Action>
+    <Action ID="SubGameStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="game_status"/>
+      <output_port name="game_status"
+                   default="{game_status}"/>
+    </Action>
+    <Action ID="SubRobotStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="robot_status"/>
+      <output_port name="robot_status"
+                   default="{robot_status}"/>
+    </Action>
+    <Action ID="Wait"
+            editable="true">
+      <input_port name="duration"
+                  default="3"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

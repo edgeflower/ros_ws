@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="observation">
+  <BehaviorTree ID="observation">
+    <Sequence name="ObservationSequence">
+      <!-- Get robot current location -->
+      <GetCurrentLocation name="GetRobotPose"
+                          current_location="{robot_pose}"/>
+
+      <!-- Select best observation goal -->
+      <GoalManager name="GoalManager"
+                   robot_pose="{robot_pose}"
+                   lethal_threshold="252"
+                   best_goal="{best_goal}"
+                   selected_id="{goal_id}"/>
+
+      <!-- Send navigation goal -->
+      <SendGoal name="NavigateToObservation"
+                goal_pose="{best_goal}"
+                action_name="/navigate_to_pose"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="GetCurrentLocation">
+      <output_port name="current_location" default="{robot_pose}"/>
+    </Action>
+    <Action ID="GoalManager">
+      <input_port name="robot_pose" default="{robot_pose}"/>
+      <input_port name="lethal_threshold" default="252"/>
+      <output_port name="best_goal" default="{best_goal}"/>
+      <output_port name="selected_id" default="{goal_id}"/>
+    </Action>
+    <Action ID="SendGoal">
+      <input_port name="goal_pose" default="0;0;0; 0;0;0;1"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

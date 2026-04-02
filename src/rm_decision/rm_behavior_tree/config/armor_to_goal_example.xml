@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ArmorToGoal Behavior Tree Example
+
+  This tree demonstrates how to use the ArmorToGoalAction node:
+  - Direct use of enemy position as navigation goal
+  - No offset calculation (simplified)
+  - Confidence filtering handled by upstream nodes
+
+  Usage:
+    - target_message: Subscribe to /target_tracking topic from vision system
+    - goal_pose: Output goal for navigation stack
+
+  Key Concepts:
+    - Direct Goal: Robot navigates directly to enemy position
+    - Confidence Check: Handled by ConfidenceHysteresis node upstream
+    - Simple and clear behavior
+-->
+<root BTCPP_format="4"
+      main_tree_to_execute="armor_to_goal_main">
+
+  <!-- Main Behavior Tree -->
+  <BehaviorTree ID="armor_to_goal_main">
+    <ReactiveSequence name="ArmorTrackingLoop">
+
+      <!-- Step 1: Subscribe to target tracking from vision system -->
+      <SubTargetTopic name="SubscribeTarget"
+                      topic_name="/target_tracking"
+                      target_message="{target_message}"/>
+
+      <!-- Step 2: Transform target to goal (direct enemy position) -->
+      <ArmorToGoal name="CalculateGoal"
+                   target_message="{target_message}"
+                   goal_pose="{goal}"/>
+
+      <!-- Step 3: Navigate to enemy -->
+      <SendGoal name="NavigateToEnemy"
+               goal_pose="{goal}"
+               action_name="/navigate_to_pose"/>
+
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Alternative: Simplified version -->
+  <BehaviorTree ID="armor_to_goal_simple">
+    <Sequence>
+      <SubTargetTopic topic_name="/target_tracking"
+                      target_message="{target_message}"/>
+      <ArmorToGoal target_message="{target_message}"
+                   goal_pose="{goal}"/>
+      <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Alternative: With confidence filtering -->
+  <BehaviorTree ID="armor_to_goal_with_filter">
+    <Sequence>
+      <SubTargetTopic topic_name="/target_tracking"
+                      target_message="{target_message}"/>
+      <EnemyPositionFilter enemy_position="{target_message}"
+                          filtered_position="{filtered_target}"/>
+      <ConfidenceHysteresis target="{filtered_target}"
+                            upper_threshold="0.5"
+                            lower_threshold="0.3"
+                            grace_period="1.5"
+                            hysteresis_state="{hysteresis_state}"/>
+      <CheckHysteresisState state="{hysteresis_state}"
+                           expected_state="HIGH"/>
+      <ArmorToGoal target_message="{filtered_target}"
+                   goal_pose="{goal}"/>
+      <SendGoal goal_pose="{goal}" action_name="/navigate_to_pose"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Node Models for Groot -->
+  <TreeNodesModel>
+    <Action ID="SubTargetTopic">
+      <input_port name="topic_name" default="/target_tracking"/>
+      <output_port name="target_message" default="{target_message}"/>
+    </Action>
+
+    <Action ID="ArmorToGoal">
+      <input_port name="target_message" default="{target_message}"/>
+      <output_port name="goal_pose" default="{goal}"/>
+      <description>
+        Convert target position to navigation goal.
+
+        Behavior:
+        - Direct use of enemy position as goal
+        - No offset calculation
+        - Confidence filtering handled upstream
+      </description>
+    </Action>
+
+    <Action ID="SendGoal">
+      <input_port name="goal_pose" default="{goal}"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+    <Action ID="EnemyPositionFilter">
+      <input_port name="enemy_position" default="{target_message}"/>
+      <output_port name="filtered_position" default="{filtered_target}"/>
+    </Action>
+
+    <Condition ID="ConfidenceHysteresis">
+      <input_port name="target" default="{filtered_target}"/>
+      <input_port name="upper_threshold" default="0.5"/>
+      <input_port name="lower_threshold" default="0.3"/>
+      <input_port name="grace_period" default="1.5"/>
+      <output_port name="hysteresis_state" default="{hysteresis_state}"/>
+    </Condition>
+
+    <Condition ID="CheckHysteresisState">
+      <input_port name="state" default="{hysteresis_state}"/>
+      <input_port name="expected_state" default="HIGH"/>
+    </Condition>
+  </TreeNodesModel>
+
+</root>

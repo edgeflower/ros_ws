@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <RateController hz="2">
+      <Sequence>
+        <SubRobotStatus topic_name="robot_status"
+                        robot_status="{robot_status}"/>
+        <GetRobotLocation robot_pose="{robot_pose}"/>
+        <IsAttacked message="{robot_status}"/>
+        <MoveAround expected_nearby_goal_count="1"
+                    expected_dis="0.5"
+                    robot_pose="{robot_pose}"/>
+      </Sequence>
+    </RateController>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="GetRobotLocation"
+            editable="true">
+      <output_port name="robot_pose"
+                   default="{robot_pose}"/>
+    </Action>
+    <Action ID="IsAttacked"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+    </Action>
+    <Action ID="MoveAround"
+            editable="true">
+      <input_port name="expected_nearby_goal_count"
+                  default="5"/>
+      <input_port name="expected_dis"
+                  default="0.3"/>
+      <input_port name="robot_pose"
+                  default="{robot_pose}"/>
+    </Action>
+    <Decorator ID="RateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+    <Action ID="SubRobotStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="robot_status"/>
+      <output_port name="robot_status"
+                   default="{robot_status}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

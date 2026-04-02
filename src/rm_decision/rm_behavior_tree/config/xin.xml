@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <Sequence>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.0"
+                    gimbal_big_yaw_vel="0.0"/>
+      <SendMyGoal name="NavigateToPoint1"
+                  my_goal_pose="5.92473;2.05222;0;0;0;0.105351;0.994435"
+                  action_name="/navigate_to_pose"/>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.0"
+                    gimbal_big_yaw_vel="0.0"/>
+      <SendMyGoal name="NavigateToPoint2"
+                  my_goal_pose="7.55348;6.31452;0;0;0;-0.5200;0.85416"
+                  action_name="/navigate_to_pose"/>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.0"
+                    gimbal_big_yaw_vel="0.0"/>
+      <SendMyGoal name="NavigateToPoint3"
+                  my_goal_pose="1.77281;6.15745;0;0;0;-0.507379;0.861723"
+                  action_name="/navigate_to_pose"/>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.0"
+                    gimbal_big_yaw_vel="0.0"/>
+      <SendMyGoal name="NavigateToPoint4"
+                  my_goal_pose="0.0186658;0.893684;0;0;0;-0.271322;0.962489"
+                  action_name="/navigate_to_pose"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="RobotControl"
+            editable="true">
+      <input_port name="stop_gimbal_scan"
+                  default="True"/>
+      <input_port name="chassis_spin_vel"
+                  default="0.0"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+    </Action>
+    <Action ID="SendMyGoal">
+      <input_port name="my_goal_pose"
+                  default="{best_goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

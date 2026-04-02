@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <BehaviorTree ID="complete_test">
+    <ReactiveSequence>
+      <SubArmors topic_name="target_tracking"
+                 armors="{armors}"/>
+      <SubRobotStatus topic_name="robot_status"
+                      robot_status="{robot_status}"/>
+      <SubRobotPosture topic_name="sentry_posture_status"
+                       posture="{robot_posture_status}"
+                       posture_status="{posture_status}"/>
+      <SetPosture robot_posture_status="{robot_posture_status}"
+                  override="False"/>
+      <WhileDoElse>
+        <RobotControl stop_gimbal_scan="True"
+                      chassis_spin_vel="0.5"
+                      gimbal_big_yaw_vel="30.0"
+                      _description="30.0是可以驱动大云台转动的数值"/>
+        <ReactiveSequence>
+          <WhileDoElse name="Spin when no enemy">
+            <IsDetectEnemy message="{armors}"/>
+            <AsyncSequence>
+              <RobotControl stop_gimbal_scan="True"
+                            chassis_spin_vel="0.5"
+                            gimbal_big_yaw_vel="0.0"/>
+              <SetPosture robot_posture_status="{robot_posture_status}"
+                          override="True"/>
+            </AsyncSequence>
+            <AsyncSequence>
+              <RobotControl stop_gimbal_scan="True"
+                            chassis_spin_vel="0.5"
+                            gimbal_big_yaw_vel="30.0"/>
+              <SetPosture robot_posture_status="{robot_posture_status}"
+                          override="True"/>
+            </AsyncSequence>
+          </WhileDoElse>
+          <WhileDoElse>
+            <IsDetectEnemy message="{armors}"/>
+            <WhileDoElse name="Evade when attacked">
+              <IsAttacked message="{robot_status}"/>
+              <AsyncSequence>
+                <GetCurrentLocation current_location="{current_location}"/>
+                <MoveAround expected_nearby_goal_count="5"
+                            expected_dis="0.3"
+                            message="{current_location}"/>
+              </AsyncSequence>
+              <Fallback>
+                <IsStatusOK message="{robot_status}"
+                            hp_threshold="150"
+                            heat_threshold="350"/>
+                <SendGoal name="Retreat"
+                          goal_pose="-0.67;-0.54;0; 0;0;0;1"
+                          action_name="/red_standard_robot1/navigate_to_pose"
+                          min_goal_distance="0.5"
+                          current_goal_id="{goal_id}"
+                          reached_goal_id="{reached_goal_id}"/>
+              </Fallback>
+            </WhileDoElse>
+            <WhileDoElse name="Hold center when healthy">
+              <IsStatusOK message="{robot_status}"
+                          hp_threshold="150"
+                          heat_threshold="350"/>
+              <WhileDoElse name="Dodge">
+                <IsAttacked message="{robot_status}"/>
+                <AsyncSequence>
+                  <GetCurrentLocation current_location="{current_location}"/>
+                  <MoveAround expected_nearby_goal_count="5"
+                              expected_dis="0.3"
+                              message="{current_location}"/>
+                </AsyncSequence>
+                <RateController hz="1">
+                  <SendGoal name="Occupy center"
+                            goal_pose="3.1;0.65;0; 0;0;0;1"
+                            action_name="/red_standard_robot1/navigate_to_pose"
+                            min_goal_distance="0.5"
+                            current_goal_id="{goal_id}"
+                            reached_goal_id="{reached_goal_id}"/>
+                </RateController>
+              </WhileDoElse>
+              <RateController hz="1">
+                <SendGoal name="go back home"
+                          goal_pose="-0.67;-0.54;0; 0;0;0;1"
+                          action_name="/red_standard_robot1/navigate_to_pose"
+                          min_goal_distance="0.5"
+                          current_goal_id="{goal_id}"
+                          reached_goal_id="{reached_goal_id}"/>
+              </RateController>
+            </WhileDoElse>
+          </WhileDoElse>
+        </ReactiveSequence>
+        <ReactiveSequence>
+          <RateController hz="1">
+            <SendGoal name="Fallback to center"
+                      goal_pose="4.85;-3.34;0; 0;0;0;1"
+                      action_name="/red_standard_robot1/navigate_to_pose"
+                      min_goal_distance="0.5"
+                      current_goal_id="{goal_id}"
+                      reached_goal_id="{reached_goal_id}"/>
+          </RateController>
+        </ReactiveSequence>
+      </WhileDoElse>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="GetCurrentLocation"
+            editable="true">
+      <output_port name="current_location"
+                   default="{current_location}"/>
+    </Action>
+    <Action ID="IsAttacked"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+    </Action>
+    <Action ID="IsDetectEnemy"
+            editable="true">
+      <input_port name="message"
+                  default="{armors}"/>
+    </Action>
+    <Action ID="IsStatusOK"
+            editable="true">
+      <input_port name="message"
+                  default="{robot_status}"/>
+      <input_port name="hp_threshold"
+                  default="100"/>
+      <input_port name="heat_threshold"
+                  default="350"/>
+    </Action>
+    <Action ID="MoveAround"
+            editable="true">
+      <input_port name="expected_nearby_goal_count"
+                  default="5"/>
+      <input_port name="expected_dis"
+                  default="0.3"/>
+      <input_port name="message"
+                  default="{current_location}"/>
+    </Action>
+    <Decorator ID="RateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+    <Action ID="RobotControl"
+            editable="true">
+      <input_port name="stop_gimbal_scan"
+                  default="True"/>
+      <input_port name="chassis_spin_vel"
+                  default="0.0"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+    </Action>
+    <Action ID="SendGoal">
+      <input_port name="goal_pose"
+                  default="{best_goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+      <input_port name="min_goal_distance"
+                  default="0.5"/>
+      <input_port name="current_goal_id"
+                  default="{goal_id}"/>
+      <output_port name="reached_goal_id"
+                   default="{reached_goal_id}"/>
+    </Action>
+    <Action ID="SetPosture"
+            editable="true">
+      <input_port name="robot_posture_status"
+                  default="{robot_posture_status}"/>
+      <input_port name="override"
+                  default="False"/>
+    </Action>
+    <Action ID="SubArmors"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/detector/armors"/>
+      <output_port name="armors"
+                   default="{armors}"/>
+    </Action>
+    <Action ID="SubRobotPosture"
+            editable="true">
+      <input_port name="topic_name"
+                  default="sentry_posture_status"/>
+      <output_port name="posture"
+                   default="{robot_posture_status}"/>
+      <output_port name="posture_status"
+                   default="{posture_status}"/>
+    </Action>
+    <Action ID="SubRobotStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="robot_status"/>
+      <output_port name="robot_status"
+                   default="{robot_status}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>
