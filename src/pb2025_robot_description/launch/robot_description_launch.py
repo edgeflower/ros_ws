@@ -62,9 +62,9 @@ def launch_setup(context: LaunchContext) -> list:
     bringup_cmd_group = GroupAction(
         [
             Node(
-                package="joint_state_publisher_gui",
-                executable="joint_state_publisher_gui",
-                name="joint_state_publisher_gui",
+                package="joint_state_publisher",
+                executable="joint_state_publisher",
+                name="joint_state_publisher",
                 output="screen",
                 respawn=use_respawn,
                 respawn_delay=2.0,
@@ -115,13 +115,13 @@ def generate_launch_description():
 
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         "use_sim_time",
-        default_value="True",
+        default_value="False",
         description="Use simulation (Gazebo) clock if true",
     )
 
     declare_robot_name_cmd = DeclareLaunchArgument(
         "robot_name",
-        default_value="sentry2026",
+        default_value="sentry2026_fix",
         description="The file name of the robot xmacro to be used such as simulation_robot",
     )
 

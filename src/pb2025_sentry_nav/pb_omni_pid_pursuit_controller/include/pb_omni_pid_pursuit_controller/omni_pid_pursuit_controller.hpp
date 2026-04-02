@@ -1,4 +1,16 @@
-
+// Copyright 2025 Lihan Chen
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef PB_OMNI_PID_PURSUIT_CONTROLLER__OMNI_PID_PURSUIT_CONTROLLER_HPP_
 #define PB_OMNI_PID_PURSUIT_CONTROLLER__OMNI_PID_PURSUIT_CONTROLLER_HPP_
@@ -6,42 +18,17 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <mutex>
-#include <random>
-#include <limits>
-
-#include <Eigen/Dense>
-
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "rclcpp_lifecycle/lifecycle_publisher.hpp"
-#include "rcl_interfaces/msg/set_parameters_result.hpp"
-
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "geometry_msgs/msg/twist.hpp"
-#include "geometry_msgs/msg/point_stamped.hpp"
-#include "nav_msgs/msg/path.hpp"
 
 #include "nav2_core/controller.hpp"
-#include "nav2_costmap_2d/costmap_2d_ros.hpp"
-#include "nav2_costmap_2d/cost_values.hpp"
-
 #include "pb_omni_pid_pursuit_controller/pid.hpp"
-#include "pb_omni_pid_pursuit_controller/fuzzy_pid.hpp"
-#include "pb_omni_pid_pursuit_controller/trajectory.hpp"
-#include "pb_omni_pid_pursuit_controller/critics/critic_function.hpp"
-#include "pb_omni_pid_pursuit_controller/cbf_safety_layer.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
-
-#include "tf2_ros/buffer.h"
-#include "tf2/time.h"
 
 namespace pb_omni_pid_pursuit_controller
 {
 
 /**
  * @class pb_omni_pid_pursuit_controller::OmniPidPursuitController
- * @brief Omni-directional controller with PID pure pursuit + mini-MPPI sampling
+ * @brief Regulated pure pursuit controller plugin
  */
 class OmniPidPursuitController : public nav2_core::Controller
 {
@@ -202,11 +189,20 @@ protected:
    */
   void applyApproachVelocityScaling(const nav_msgs::msg::Path & path, double & linear_vel) const;
 
-  // 旧的碰撞检测接口，若你想继续用可以保留；mini-MPPI 版本主要用 evaluateTrajectory()
+  /**
+   * @brief Checks if collision is detected along the given path
+   * @param path Local path to check for collisions
+   * @return True if collision detected, false otherwise
+   */
   bool isCollisionDetected(const nav_msgs::msg::Path & path);
 
 private:
-  // 曲率相关
+  /**
+   * @brief Applies curvature based speed limitation
+   * @param path Transformed local path
+   * @param lookahead_pose Lookahead point pose
+   * @param linear_vel Linear velocity command (in out)
+   */
   void applyCurvatureLimitation(
     const nav_msgs::msg::Path & path, const geometry_msgs::msg::PoseStamped & lookahead_pose,
     double & linear_vel);
@@ -261,91 +257,20 @@ private:
     const nav_msgs::msg::Path & path, const std::vector<double> & cumulative_distances,
     double target_distance) const;
 
-  // ------------------ mini-MPPI 相关结构与函数 ------------------
-
-  // Use ControlSample from trajectory.hpp instead of local definition
-  // struct ControlSample is now in trajectory.hpp
-
-  /**
-   * @brief Sample control candidates around nominal control
-   * @param vx_nom Nominal X velocity
-   * @param vy_nom Nominal Y velocity
-   * @param wz_nom Nominal angular velocity
-   * @return Vector of control samples
-   */
-  std::vector<ControlSample> sampleControlCandidates(
-    double vx_nom, double vy_nom, double wz_nom);
-
-  /**
-   * @brief Evaluate a trajectory using the critic system
-   * @param trajectory Trajectory to evaluate
-   * @param data Context data for critics
-   * @param collision Output parameter for collision detection
-   * @return Total cost from all enabled critics
-   */
-  double evaluateTrajectoryWithCritics(
-    const Trajectory & trajectory,
-    const CriticData & data,
-    bool & collision) const;
-
-  /**
-   * @brief Roll out a trajectory from a control input
-   * @param start_pose Starting pose in costmap frame
-   * @param u Control input
-   * @param data Context data
-   * @param trajectory Output trajectory
-   * @return true if rollout successful
-   */
-  bool rolloutTrajectory(
-    const geometry_msgs::msg::Pose & start_pose,
-    const ControlSample & u,
-    const CriticData & data,
-    Trajectory & trajectory) const;
-
-  void stepDynamics(
-    double & x, double & y, double & theta,
-    double vx, double vy, double wz, double dt) const;
-
-  /**
-   * @brief Legacy evaluation function (kept for backward compatibility)
-   */
-  double evaluateTrajectory(
-    const geometry_msgs::msg::Pose & start_pose_costmap_frame,
-    const ControlSample & u,
-    const nav_msgs::msg::Path & costmap_frame_local_plan,
-    nav2_costmap_2d::Costmap2D * costmap,
-    bool & collision) const;
-
-  double costmapObstacleCost(
-    double wx, double wy, nav2_costmap_2d::Costmap2D * costmap) const;
-
-  double pathEndDistanceCost(
-    double wx, double wy, const nav_msgs::msg::Path & costmap_frame_local_plan) const;
-
-  /**
-   * @brief Initialize the critic system
-   * @param parent Parent node
-   */
-  void initializeCritics(
-    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent);
-
 private:
-  // ROS 相关
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   std::string plugin_name_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
-  nav2_costmap_2d::Costmap2D * costmap_{nullptr};
+  nav2_costmap_2d::Costmap2D * costmap_;
   rclcpp::Logger logger_{rclcpp::get_logger("OmniPidPursuitController")};
   rclcpp::Clock::SharedPtr clock_;
+  double last_velocity_scaling_factor_;
 
-  // PID 控制器
   std::shared_ptr<PID> move_pid_;
   std::shared_ptr<PID> heading_pid_;
 
-  // Controller 参数
-  double last_velocity_scaling_factor_{0.0};
-
+  // Controller parameters
   double translation_kp_, translation_ki_, translation_kd_;
   bool enable_rotation_;
   double rotation_kp_, rotation_ki_, rotation_kd_;
@@ -374,61 +299,13 @@ private:
   double max_velocity_scaling_factor_rate_;
   tf2::Duration transform_tolerance_;
 
-  // mini-MPPI 参数
-  int time_steps_;
-  double model_dt_;
-  int batch_size_;
-  double vx_std_, vy_std_, wz_std_;
-  double path_weight_;
-  double obstacle_weight_;
-  double control_weight_;
-
-  std::mt19937 rng_;
-
-  // ------------------ 新增: 模糊自适应 PID ------------------
-  bool enable_fuzzy_pid_;
-  double fuzzy_error_max_;
-  double fuzzy_error_change_max_;
-  double fuzzy_kp_adjustment_ratio_;
-  double fuzzy_ki_adjustment_ratio_;
-  double fuzzy_kd_adjustment_ratio_;
-
-  // Fuzzy PID controllers (created if enable_fuzzy_pid_ is true)
-  std::shared_ptr<FuzzyPID> fuzzy_move_pid_;
-  std::shared_ptr<FuzzyPID> fuzzy_heading_pid_;
-
-  // ------------------ 新增: Critic 系统 ------------------
-  bool enable_mppi_;
-  bool use_enhanced_mppi_;
-  bool adaptive_noise_;
-  double adaptive_noise_min_std_;
-  double adaptive_noise_max_std_;
-
-  // Critic instances
-  std::vector<std::shared_ptr<CriticFunction>> critics_;
-
-  // ------------------ 新增: CBF 安全层 ------------------
-  bool enable_cbf_safety_;
-  std::string cbf_type_;  // "c3bf" or "dpcbf"
-  double cbf_robot_radius_;
-  double cbf_safety_margin_;
-  double cbf_alpha_;
-  double cbf_max_obstacle_dist_;
-  int cbf_max_num_obstacles_;
-  double cbf_k_lambda_;
-  double cbf_k_mu_;
-
-  // CBF 安全层实例
-  std::shared_ptr<CBFSafetyLayer> cbf_safety_layer_;
-
-  // 轨迹 / 可视化
   nav_msgs::msg::Path global_plan_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PointStamped>::SharedPtr carrot_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr
     curvature_points_pub_;
 
-  // 动态参数
+  // Dynamic parameters handler
   std::mutex mutex_;
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 };

@@ -1,24 +1,22 @@
-
+// Copyright 2025 Lihan Chen
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "pb_omni_pid_pursuit_controller/omni_pid_pursuit_controller.hpp"
-
-// New includes for fuzzy PID and critic system
-#include "pb_omni_pid_pursuit_controller/fuzzy_pid.hpp"
-#include "pb_omni_pid_pursuit_controller/critics/critic_function.hpp"
-#include "pb_omni_pid_pursuit_controller/critics/path_align_critic.hpp"
-#include "pb_omni_pid_pursuit_controller/critics/goal_angle_critic.hpp"
-#include "pb_omni_pid_pursuit_controller/critics/prefer_forward_critic.hpp"
-#include "pb_omni_pid_pursuit_controller/critics/obstacle_critic.hpp"
-
-#include <algorithm>
-#include <cmath>
 
 #include "nav2_core/exceptions.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_util/node_utils.hpp"
-
-#include "tf2/utils.h"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 using nav2_util::declare_parameter_if_not_declared;
 using nav2_util::geometry_utils::euclidean_distance;
@@ -52,9 +50,7 @@ void OmniPidPursuitController::configure(
   double transform_tolerance = 1.0;
   double control_frequency = 20.0;
   max_robot_pose_search_dist_ = getCostmapMaxExtent();
-  last_velocity_scaling_factor_ = 0.0;
 
-  // PID / pure-pursuit 参数
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".translation_kp", rclcpp::ParameterValue(3.0));
   declare_parameter_if_not_declared(
@@ -117,73 +113,6 @@ void OmniPidPursuitController::configure(
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".max_velocity_scaling_factor_rate", rclcpp::ParameterValue(0.9));
 
-  // mini-MPPI 参数
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".time_steps", rclcpp::ParameterValue(20));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".model_dt", rclcpp::ParameterValue(0.05));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".batch_size", rclcpp::ParameterValue(200));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".vx_std", rclcpp::ParameterValue(0.5));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".vy_std", rclcpp::ParameterValue(0.5));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".wz_std", rclcpp::ParameterValue(0.5));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".path_weight", rclcpp::ParameterValue(1.0));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".obstacle_weight", rclcpp::ParameterValue(5.0));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".control_weight", rclcpp::ParameterValue(0.1));
-
-  // Fuzzy PID 参数
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".enable_fuzzy_pid", rclcpp::ParameterValue(false));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".fuzzy_error_max", rclcpp::ParameterValue(2.0));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".fuzzy_error_change_max", rclcpp::ParameterValue(5.0));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".fuzzy_kp_adjustment_ratio", rclcpp::ParameterValue(0.5));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".fuzzy_ki_adjustment_ratio", rclcpp::ParameterValue(0.3));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".fuzzy_kd_adjustment_ratio", rclcpp::ParameterValue(0.4));
-
-  // Enhanced MPPI 参数
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".enable_mppi", rclcpp::ParameterValue(true));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".use_enhanced_mppi", rclcpp::ParameterValue(true));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".adaptive_noise", rclcpp::ParameterValue(true));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".adaptive_noise_min_std", rclcpp::ParameterValue(0.1));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".adaptive_noise_max_std", rclcpp::ParameterValue(1.0));
-
-  // CBF 安全层参数
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".enable_cbf_safety", rclcpp::ParameterValue(true));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_type", rclcpp::ParameterValue(std::string("c3bf")));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_robot_radius", rclcpp::ParameterValue(0.3));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_safety_margin", rclcpp::ParameterValue(1.05));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_alpha", rclcpp::ParameterValue(1.0));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_max_obstacle_dist", rclcpp::ParameterValue(5.0));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_max_num_obstacles", rclcpp::ParameterValue(10));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_k_lambda", rclcpp::ParameterValue(0.1));
-  declare_parameter_if_not_declared(
-    node, plugin_name_ + ".cbf_k_mu", rclcpp::ParameterValue(0.5));
-
-  // 读取参数
   node->get_parameter(plugin_name_ + ".translation_kp", translation_kp_);
   node->get_parameter(plugin_name_ + ".translation_ki", translation_ki_);
   node->get_parameter(plugin_name_ + ".translation_kd", translation_kd_);
@@ -227,116 +156,31 @@ void OmniPidPursuitController::configure(
   node->get_parameter(
     plugin_name_ + ".max_velocity_scaling_factor_rate", max_velocity_scaling_factor_rate_);
 
-  node->get_parameter(plugin_name_ + ".time_steps", time_steps_);
-  node->get_parameter(plugin_name_ + ".model_dt", model_dt_);
-  node->get_parameter(plugin_name_ + ".batch_size", batch_size_);
-  node->get_parameter(plugin_name_ + ".vx_std", vx_std_);
-  node->get_parameter(plugin_name_ + ".vy_std", vy_std_);
-  node->get_parameter(plugin_name_ + ".wz_std", wz_std_);
-  node->get_parameter(plugin_name_ + ".path_weight", path_weight_);
-  node->get_parameter(plugin_name_ + ".obstacle_weight", obstacle_weight_);
-  node->get_parameter(plugin_name_ + ".control_weight", control_weight_);
-
-  // Fuzzy PID 参数
-  node->get_parameter(plugin_name_ + ".enable_fuzzy_pid", enable_fuzzy_pid_);
-  node->get_parameter(plugin_name_ + ".fuzzy_error_max", fuzzy_error_max_);
-  node->get_parameter(plugin_name_ + ".fuzzy_error_change_max", fuzzy_error_change_max_);
-  node->get_parameter(plugin_name_ + ".fuzzy_kp_adjustment_ratio", fuzzy_kp_adjustment_ratio_);
-  node->get_parameter(plugin_name_ + ".fuzzy_ki_adjustment_ratio", fuzzy_ki_adjustment_ratio_);
-  node->get_parameter(plugin_name_ + ".fuzzy_kd_adjustment_ratio", fuzzy_kd_adjustment_ratio_);
-
-  // Enhanced MPPI 参数
-  node->get_parameter(plugin_name_ + ".enable_mppi", enable_mppi_);
-  node->get_parameter(plugin_name_ + ".use_enhanced_mppi", use_enhanced_mppi_);
-  node->get_parameter(plugin_name_ + ".adaptive_noise", adaptive_noise_);
-  node->get_parameter(plugin_name_ + ".adaptive_noise_min_std", adaptive_noise_min_std_);
-  node->get_parameter(plugin_name_ + ".adaptive_noise_max_std", adaptive_noise_max_std_);
-
-  // CBF 安全层参数
-  node->get_parameter(plugin_name_ + ".enable_cbf_safety", enable_cbf_safety_);
-  node->get_parameter(plugin_name_ + ".cbf_type", cbf_type_);
-  node->get_parameter(plugin_name_ + ".cbf_robot_radius", cbf_robot_radius_);
-  node->get_parameter(plugin_name_ + ".cbf_safety_margin", cbf_safety_margin_);
-  node->get_parameter(plugin_name_ + ".cbf_alpha", cbf_alpha_);
-  node->get_parameter(plugin_name_ + ".cbf_max_obstacle_dist", cbf_max_obstacle_dist_);
-  node->get_parameter(plugin_name_ + ".cbf_max_num_obstacles", cbf_max_num_obstacles_);
-  node->get_parameter(plugin_name_ + ".cbf_k_lambda", cbf_k_lambda_);
-  node->get_parameter(plugin_name_ + ".cbf_k_mu", cbf_k_mu_);
-
   node->get_parameter("controller_frequency", control_frequency);
 
   transform_tolerance_ = tf2::durationFromSec(transform_tolerance);
   control_duration_ = 1.0 / control_frequency;
 
-  // Publisher
   local_path_pub_ = node->create_publisher<nav_msgs::msg::Path>("local_plan", 1);
   carrot_pub_ = node->create_publisher<geometry_msgs::msg::PointStamped>("lookahead_point", 1);
   curvature_points_pub_ =
-    node_.lock()->create_publisher<visualization_msgs::msg::MarkerArray>(
-      "curvature_points_marker_array", rclcpp::QoS(10));
+    node_.lock()
+      ->create_publisher<visualization_msgs::msg::MarkerArray>(  // 初始化 MarkerArray Publisher
+        "curvature_points_marker_array", rclcpp::QoS(10));
 
-  // PID 控制器
   move_pid_ = std::make_shared<PID>(
     control_duration_, v_linear_max_, v_linear_min_, translation_kp_, translation_kd_,
     translation_ki_);
   heading_pid_ = std::make_shared<PID>(
     control_duration_, v_angular_max_, v_angular_min_, rotation_kp_, rotation_kd_, rotation_ki_);
-
-  // Fuzzy PID 控制器 (如果启用)
-  if (enable_fuzzy_pid_) {
-    fuzzy_move_pid_ = std::make_shared<FuzzyPID>(
-      control_duration_, v_linear_max_, v_linear_min_, translation_kp_, translation_kd_,
-      translation_ki_,
-      fuzzy_error_max_, fuzzy_error_change_max_,
-      fuzzy_kp_adjustment_ratio_, fuzzy_ki_adjustment_ratio_, fuzzy_kd_adjustment_ratio_);
-
-    fuzzy_heading_pid_ = std::make_shared<FuzzyPID>(
-      control_duration_, v_angular_max_, v_angular_min_, rotation_kp_, rotation_kd_, rotation_ki_,
-      fuzzy_error_max_, fuzzy_error_change_max_,
-      fuzzy_kp_adjustment_ratio_, fuzzy_ki_adjustment_ratio_, fuzzy_kd_adjustment_ratio_);
-
-    RCLCPP_INFO(logger_, "Fuzzy adaptive PID enabled");
-  }
-
-  // 初始化 Critic 系统 (如果启用增强 MPPI)
-  if (use_enhanced_mppi_) {
-    initializeCritics(parent);
-    RCLCPP_INFO(logger_, "Enhanced MPPI with critic system enabled (%zu critics loaded)",
-                critics_.size());
-  }
-
-  // 初始化 CBF 安全层
-  if (enable_cbf_safety_) {
-    cbf_safety_layer_ = std::make_shared<CBFSafetyLayer>();
-
-    CBFSafetyConfig cbf_config;
-    if (cbf_type_ == "dpcbf") {
-      cbf_config.cbf_type = CBFType::DPCBF;
-    } else {
-      cbf_config.cbf_type = CBFType::C3BF;
-    }
-    cbf_config.robot_radius = cbf_robot_radius_;
-    cbf_config.safety_margin = cbf_safety_margin_;
-    cbf_config.alpha = cbf_alpha_;
-    cbf_config.max_obstacle_dist = cbf_max_obstacle_dist_;
-    cbf_config.max_num_obstacles = cbf_max_num_obstacles_;
-    cbf_config.k_lambda = cbf_k_lambda_;
-    cbf_config.k_mu = cbf_k_mu_;
-
-    cbf_safety_layer_->configure(cbf_config);
-    RCLCPP_INFO(logger_, "CBF Safety Layer enabled (type: %s, radius: %.2f, margin: %.2f)",
-                cbf_type_.c_str(), cbf_robot_radius_, cbf_safety_margin_);
-  }
-
-  // 随机数种子
-  rng_ = std::mt19937(std::random_device{}());
 }
 
 void OmniPidPursuitController::cleanup()
 {
   RCLCPP_INFO(
     logger_,
-    "Cleaning up controller: %s of type pb_omni_pid_pursuit_controller::OmniPidPursuitController",
+    "Cleaning up controller: %s of type"
+    " pb_omni_pid_pursuit_controller::OmniPidPursuitController",
     plugin_name_.c_str());
   local_path_pub_.reset();
   carrot_pub_.reset();
@@ -347,12 +191,13 @@ void OmniPidPursuitController::activate()
 {
   RCLCPP_INFO(
     logger_,
-    "Activating controller: %s of type pb_omni_pid_pursuit_controller::OmniPidPursuitController",
+    "Activating controller: %s of type "
+    "regulated_pure_pursuit_controller::OmniPidPursuitController",
     plugin_name_.c_str());
   local_path_pub_->on_activate();
   carrot_pub_->on_activate();
   curvature_points_pub_->on_activate();
-
+  // Add callback for dynamic parameters
   auto node = node_.lock();
   dyn_params_handler_ = node->add_on_set_parameters_callback(
     std::bind(&OmniPidPursuitController::dynamicParametersCallback, this, std::placeholders::_1));
@@ -362,7 +207,8 @@ void OmniPidPursuitController::deactivate()
 {
   RCLCPP_INFO(
     logger_,
-    "Deactivating controller: %s of type pb_omni_pid_pursuit_controller::OmniPidPursuitController",
+    "Deactivating controller: %s of type "
+    "regulated_pure_pursuit_controller::OmniPidPursuitController",
     plugin_name_.c_str());
   local_path_pub_->on_deactivate();
   carrot_pub_->on_deactivate();
@@ -379,11 +225,12 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
   nav2_costmap_2d::Costmap2D * costmap = costmap_ros_->getCostmap();
   std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap->getMutex()));
 
-  // 1) 全局路径 → base_link frame 局部路径
+  // Transform path to robot base frame
   auto transformed_plan = transformGlobalPlan(pose);
 
-  // 2) 计算 lookahead & carrot
+  // Find look ahead distance and point on path and publish
   double lookahead_dist = getLookAheadDistance(velocity);
+
   auto carrot_pose = getLookAheadPoint(lookahead_dist, transformed_plan);
   carrot_pub_->publish(createCarrotMsg(carrot_pose));
 
@@ -394,35 +241,22 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
   if (use_rotate_to_heading_) {
     angle_to_goal = tf2::getYaw(transformed_plan.poses.back().pose.orientation);
     if (fabs(angle_to_goal) > use_rotate_to_heading_treshold_) {
-      lin_dist = 0.0;
+      lin_dist = 0;
     }
   }
 
-  // 3) 用 PID 生成"标称控制" (使用 Fuzzy PID 如果启用)
-  double lin_vel, angular_vel;
-
-  if (enable_fuzzy_pid_ && fuzzy_move_pid_ && fuzzy_heading_pid_) {
-    lin_vel = fuzzy_move_pid_->calculate(lin_dist, 0.0);
-    angular_vel = enable_rotation_ ? fuzzy_heading_pid_->calculate(angle_to_goal, 0.0) : 0.0;
-  } else {
-    lin_vel = move_pid_->calculate(lin_dist, 0.0);
-    angular_vel = enable_rotation_ ? heading_pid_->calculate(angle_to_goal, 0.0) : 0.0;
-  }
+  auto lin_vel = move_pid_->calculate(lin_dist, 0);
+  auto angular_vel = enable_rotation_ ? heading_pid_->calculate(angle_to_goal, 0) : 0.0;
 
   applyCurvatureLimitation(transformed_plan, carrot_pose, lin_vel);
+
   applyApproachVelocityScaling(transformed_plan, lin_vel);
 
-  double vx_nom = lin_vel * std::cos(theta_dist);
-  double vy_nom = lin_vel * std::sin(theta_dist);
-  double wz_nom = angular_vel;
-
-  // 4) 把局部路径采样转到 costmap frame，用于 path 末端代价
+  // Transform local frame to global frame to use in collision checking
   nav_msgs::msg::Path costmap_frame_local_plan;
-  costmap_frame_local_plan.header.frame_id = costmap_ros_->getGlobalFrameID();
-  costmap_frame_local_plan.header.stamp = pose.header.stamp;
 
   int sample_points = 10;
-  int plan_size = static_cast<int>(transformed_plan.poses.size());
+  int plan_size = transformed_plan.poses.size();
   for (int i = 0; i < sample_points; ++i) {
     int index = std::min((i * plan_size) / sample_points, plan_size - 1);
     geometry_msgs::msg::PoseStamped map_pose;
@@ -430,163 +264,20 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
     costmap_frame_local_plan.poses.push_back(map_pose);
   }
 
-  // 5) 获取机器人在 costmap frame 下当前姿态
-  geometry_msgs::msg::PoseStamped robot_in_costmap;
-  if (!transformPose(costmap_ros_->getGlobalFrameID(), pose, robot_in_costmap)) {
-    throw nav2_core::PlannerException("Unable to transform robot pose into costmap frame");
-  }
-
-  // 6) 采样一批控制候选
-  auto candidates = sampleControlCandidates(vx_nom, vy_nom, wz_nom);
-
-  // 7) 在 costmap 上滚动仿真 + 打分 (使用增强 Critic 系统或传统方法)
-  ControlSample best = candidates.front();
-  best.cost = std::numeric_limits<double>::infinity();
-  best.collision = true;
-
-  // Prepare critic data if using enhanced system
-  CriticData critic_data;
-  if (use_enhanced_mppi_ && !critics_.empty()) {
-    critic_data.robot_pose = robot_in_costmap.pose;
-    critic_data.reference_path = costmap_frame_local_plan;
-    critic_data.costmap = costmap;
-    critic_data.model_dt = model_dt_;
-    critic_data.time_steps = time_steps_;
-    critic_data.goal_pose = transformed_plan.poses.back().pose;
-    critic_data.has_goal_pose = true;
-    critic_data.v_linear_max = v_linear_max_;
-    critic_data.v_angular_max = v_angular_max_;
-  }
-
-  for (auto & c : candidates) {
-    bool collision = false;
-    double cost_value = 0.0;
-
-    if (use_enhanced_mppi_ && !critics_.empty()) {
-      // Use enhanced critic system
-      Trajectory trajectory;
-      rolloutTrajectory(robot_in_costmap.pose, c, critic_data, trajectory);
-      cost_value = evaluateTrajectoryWithCritics(trajectory, critic_data, collision);
-    } else {
-      // Use legacy evaluation
-      cost_value = evaluateTrajectory(
-        robot_in_costmap.pose, c, costmap_frame_local_plan, costmap, collision);
-    }
-
-    c.cost = cost_value;
-    c.collision = collision;
-
-    if (!collision && cost_value < best.cost) {
-      best = c;
-    }
-  }
-
   geometry_msgs::msg::TwistStamped cmd_vel;
   cmd_vel.header = pose.header;
-
-  // 8) 若所有轨迹都碰撞 → 停车
-  if (best.collision || !std::isfinite(best.cost)) {
-    RCLCPP_WARN(logger_, "All sampled trajectories in collision, stopping robot.");
-    cmd_vel.twist.linear.x = 0.0;
-    cmd_vel.twist.linear.y = 0.0;
-    cmd_vel.twist.angular.z = 0.0;
-    return cmd_vel;
-  }
-
-  // 9) 用最佳候选控制量作为输出
-  cmd_vel.twist.linear.x = best.vx;
-  cmd_vel.twist.linear.y = best.vy;
-  cmd_vel.twist.angular.z = best.wz;
-
-  cmd_vel.twist.linear.x =
-    std::clamp(cmd_vel.twist.linear.x, v_linear_min_, v_linear_max_);
-  cmd_vel.twist.linear.y =
-    std::clamp(cmd_vel.twist.linear.y, v_linear_min_, v_linear_max_);
-  cmd_vel.twist.angular.z =
-    std::clamp(cmd_vel.twist.angular.z, v_angular_min_, v_angular_max_);
-
-  // 10) CBF 安全层过滤 (如果启用)
-  if (enable_cbf_safety_ && cbf_safety_layer_) {
-    // 从 costmap 提取障碍物（使用聚类减少数量）
-    std::vector<Obstacle> obstacles;
-    auto costmap = costmap_ros_->getCostmap();
-
-    unsigned int robot_mx, robot_my;
-    if (costmap->worldToMap(robot_in_costmap.pose.position.x, robot_in_costmap.pose.position.y, robot_mx, robot_my)) {
-      int scan_radius = static_cast<int>(cbf_max_obstacle_dist_ / costmap->getResolution());
-
-      // 使用 visited 数组避免重复处理
-      std::vector<bool> visited(scan_radius * 2 + 1 * scan_radius * 2 + 1, false);
-      double cluster_resolution = costmap->getResolution() * 2.0;  // 聚类分辨率
-
-      for (int dx = -scan_radius; dx <= scan_radius; ++dx) {
-        for (int dy = -scan_radius; dy <= scan_radius; ++dy) {
-          unsigned int mx = robot_mx + dx;
-          unsigned int my = robot_my + dy;
-
-          if (mx >= costmap->getSizeInCellsX() || my >= costmap->getSizeInCellsY()) {
-            continue;
-          }
-
-          unsigned int cost = costmap->getCost(mx, my);
-          if (cost >= nav2_costmap_2d::LETHAL_OBSTACLE) {
-            // 转换为世界坐标
-            double wx, wy;
-            costmap->mapToWorld(mx, my, wx, wy);
-
-            // 检查是否与已有障碍物足够远（聚类）
-            bool is_new_cluster = true;
-            for (const auto & existing_obs : obstacles) {
-              double dist = std::hypot(existing_obs.x - wx, existing_obs.y - wy);
-              if (dist < cluster_resolution) {
-                is_new_cluster = false;
-                break;
-              }
-            }
-
-            if (is_new_cluster && obstacles.size() < static_cast<size_t>(cbf_max_num_obstacles_)) {
-              // 障碍物半径设为 costmap 分辨率
-              double obs_radius = costmap->getResolution();
-              obstacles.emplace_back(wx, wy, obs_radius, 0.0, 0.0);
-
-              // 限制障碍物数量
-              if (obstacles.size() >= static_cast<size_t>(cbf_max_num_obstacles_)) {
-                break;
-              }
-            }
-          }
-        }
-        if (obstacles.size() >= static_cast<size_t>(cbf_max_num_obstacles_)) {
-          break;
-        }
-      }
-    }
-
-    // 设置机器人状态和障碍物
-    double current_v = std::hypot(velocity.linear.x, velocity.linear.y);
-    cbf_safety_layer_->setRobotState(
-      robot_in_costmap.pose.position.x,
-      robot_in_costmap.pose.position.y,
-      tf2::getYaw(robot_in_costmap.pose.orientation),
-      current_v);
-    cbf_safety_layer_->setObstacles(obstacles);
-
-    // 应用 CBF 过滤
-    Eigen::Vector3d u_ref(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y, cmd_vel.twist.angular.z);
-    Eigen::Vector3d u_safe = cbf_safety_layer_->filterControl(u_ref);
-
-    cmd_vel.twist.linear.x = u_safe[0];
-    cmd_vel.twist.linear.y = u_safe[1];
-    cmd_vel.twist.angular.z = u_safe[2];
+  if (!isCollisionDetected(costmap_frame_local_plan)) {
+    cmd_vel.twist.linear.x = lin_vel * cos(theta_dist);
+    cmd_vel.twist.linear.y = lin_vel * sin(theta_dist);
+    cmd_vel.twist.angular.z = angular_vel;
+  } else {
+    throw nav2_core::PlannerException("Collision detected in the trajectory. Stopping the robot!");
   }
 
   return cmd_vel;
 }
 
-void OmniPidPursuitController::setPlan(const nav_msgs::msg::Path & path)
-{
-  global_plan_ = path;
-}
+void OmniPidPursuitController::setPlan(const nav_msgs::msg::Path & path) { global_plan_ = path; }
 
 void OmniPidPursuitController::setSpeedLimit(
   const double & /*speed_limit*/, const bool & /*percentage*/)
@@ -665,7 +356,7 @@ std::unique_ptr<geometry_msgs::msg::PointStamped> OmniPidPursuitController::crea
   carrot_msg->header = carrot_pose.header;
   carrot_msg->point.x = carrot_pose.pose.position.x;
   carrot_msg->point.y = carrot_pose.pose.position.y;
-  carrot_msg->point.z = 0.01;
+  carrot_msg->point.z = 0.01;  // publish right over map to stand out
   return carrot_msg;
 }
 
@@ -727,7 +418,7 @@ geometry_msgs::msg::Point OmniPidPursuitController::circleSegmentIntersection(
   double dd = d2 - d1;
 
   geometry_msgs::msg::Point p;
-  double sqrt_term = std::sqrt(std::max(0.0, r * r * dr2 - d * d));
+  double sqrt_term = std::sqrt(r * r * dr2 - d * d);
   p.x = (d * dy + std::copysign(1.0, dd) * dx * sqrt_term) / dr2;
   p.y = (-d * dx + std::copysign(1.0, dd) * dy * sqrt_term) / dr2;
   return p;
@@ -739,7 +430,6 @@ double OmniPidPursuitController::getCostmapMaxExtent() const
     std::max(costmap_->getSizeInMetersX(), costmap_->getSizeInMetersY());
   return max_costmap_dim_meters / 2.0;
 }
-
 bool OmniPidPursuitController::transformPose(
   const std::string frame, const geometry_msgs::msg::PoseStamped & in_pose,
   geometry_msgs::msg::PoseStamped & out_pose) const
@@ -890,17 +580,12 @@ double OmniPidPursuitController::calculateCurvatureRadius(
   double x2 = current_point.x, y2 = current_point.y;
   double x3 = far_point.x, y3 = far_point.y;
 
-  double denom = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
-  if (std::fabs(denom) < 1e-6) {
-    return 1e9;
-  }
-
   double center_x = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) +
                      (x3 * x3 + y3 * y3) * (y1 - y2)) /
-                    denom;
+                    (2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)));
   double center_y = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) +
                      (x3 * x3 + y3 * y3) * (x2 - x1)) /
-                    denom;
+                    (2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)));
   double radius = std::hypot(x2 - center_x, y2 - center_y);
   if (std::isnan(radius) || std::isinf(radius) || radius < 1e-9) {
     return 1e9;
@@ -946,11 +631,6 @@ std::vector<double> OmniPidPursuitController::calculateCumulativeDistances(
   const nav_msgs::msg::Path & path) const
 {
   std::vector<double> cumulative_distances;
-  if (path.poses.empty()) {
-    return cumulative_distances;
-  }
-
-  cumulative_distances.reserve(path.poses.size());
   cumulative_distances.push_back(0.0);
 
   for (size_t i = 1; i < path.poses.size(); ++i) {
@@ -966,9 +646,8 @@ geometry_msgs::msg::PoseStamped OmniPidPursuitController::findPoseAtDistance(
   const nav_msgs::msg::Path & path, const std::vector<double> & cumulative_distances,
   double target_distance) const
 {
-  geometry_msgs::msg::PoseStamped empty_pose;
   if (path.poses.empty() || cumulative_distances.empty()) {
-    return empty_pose;
+    return geometry_msgs::msg::PoseStamped();
   }
   if (target_distance <= 0.0) {
     return path.poses.front();
@@ -978,7 +657,7 @@ geometry_msgs::msg::PoseStamped OmniPidPursuitController::findPoseAtDistance(
   }
   auto it =
     std::lower_bound(cumulative_distances.begin(), cumulative_distances.end(), target_distance);
-  size_t index = static_cast<size_t>(std::distance(cumulative_distances.begin(), it));
+  size_t index = std::distance(cumulative_distances.begin(), it);
 
   if (index == 0) {
     return path.poses.front();
@@ -1001,249 +680,6 @@ geometry_msgs::msg::PoseStamped OmniPidPursuitController::findPoseAtDistance(
 
   return interpolated_pose;
 }
-
-// ---------------- mini-MPPI 相关实现 ----------------
-
-std::vector<ControlSample>
-OmniPidPursuitController::sampleControlCandidates(
-  double vx_nom, double vy_nom, double wz_nom)
-{
-  std::vector<ControlSample> samples;
-  samples.reserve(static_cast<size_t>(batch_size_));
-
-  // Adaptive noise: scale noise based on nominal control magnitude
-  double vx_noise_std = vx_std_;
-  double vy_noise_std = vy_std_;
-  double wz_noise_std = wz_std_;
-
-  if (adaptive_noise_) {
-    double control_magnitude = std::hypot(vx_nom, vy_nom);
-    double noise_scale = adaptive_noise_min_std_ +
-      (adaptive_noise_max_std_ - adaptive_noise_min_std_) *
-      (control_magnitude / v_linear_max_);
-    noise_scale = std::clamp(noise_scale, adaptive_noise_min_std_, adaptive_noise_max_std_);
-
-    vx_noise_std = noise_scale;
-    vy_noise_std = noise_scale;
-    wz_noise_std = noise_scale * 0.5;  // Less noise on rotation
-  }
-
-  std::normal_distribution<double> dist_vx(0.0, vx_noise_std);
-  std::normal_distribution<double> dist_vy(0.0, vy_noise_std);
-  std::normal_distribution<double> dist_wz(0.0, wz_noise_std);
-
-  // 标称控制 - 加入多次以提高选中概率 (约占 10% 的样本)
-  int nominal_repeat_count = std::max(1, batch_size_ / 10);
-  for (int i = 0; i < nominal_repeat_count; ++i) {
-    ControlSample nominal;
-    nominal.vx = std::clamp(vx_nom, v_linear_min_, v_linear_max_);
-    nominal.vy = std::clamp(vy_nom, v_linear_min_, v_linear_max_);
-    nominal.wz = std::clamp(wz_nom, v_angular_min_, v_angular_max_);
-    nominal.cost = 0.0;
-    nominal.collision = false;
-    samples.push_back(nominal);
-  }
-
-  // 采样新的控制候选
-  int noise_samples = batch_size_ - nominal_repeat_count;
-  for (int i = 0; i < noise_samples; ++i) {
-    ControlSample c;
-    c.vx = vx_nom + dist_vx(rng_);
-    c.vy = vy_nom + dist_vy(rng_);
-    c.wz = wz_nom + dist_wz(rng_);
-
-    c.vx = std::clamp(c.vx, v_linear_min_, v_linear_max_);
-    c.vy = std::clamp(c.vy, v_linear_min_, v_linear_max_);
-    c.wz = std::clamp(c.wz, v_angular_min_, v_angular_max_);
-
-    c.cost = 0.0;
-    c.collision = false;
-    samples.push_back(c);
-  }
-
-  return samples;
-}
-
-void OmniPidPursuitController::stepDynamics(
-  double & x, double & y, double & theta,
-  double vx, double vy, double wz, double dt) const
-{
-  double cos_th = std::cos(theta);
-  double sin_th = std::sin(theta);
-
-  double vx_world = vx * cos_th - vy * sin_th;
-  double vy_world = vx * sin_th + vy * cos_th;
-
-  x += vx_world * dt;
-  y += vy_world * dt;
-  theta += wz * dt;
-}
-
-double OmniPidPursuitController::costmapObstacleCost(
-  double wx, double wy, nav2_costmap_2d::Costmap2D * costmap) const
-{
-  unsigned int mx, my;
-  if (!costmap->worldToMap(wx, wy, mx, my)) {
-    return std::numeric_limits<double>::infinity();
-  }
-
-  unsigned char c = costmap->getCost(mx, my);
-
-  if (c >= nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE) {
-    return std::numeric_limits<double>::infinity();
-  }
-
-  double norm_c = static_cast<double>(c) /
-    static_cast<double>(nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE + 1);
-  return norm_c;
-}
-
-double OmniPidPursuitController::pathEndDistanceCost(
-  double wx, double wy, const nav_msgs::msg::Path & costmap_frame_local_plan) const
-{
-  if (costmap_frame_local_plan.poses.empty()) {
-    return 0.0;
-  }
-
-  const auto & last = costmap_frame_local_plan.poses.back().pose.position;
-  double dx = wx - last.x;
-  double dy = wy - last.y;
-  return std::hypot(dx, dy);
-}
-
-double OmniPidPursuitController::evaluateTrajectory(
-  const geometry_msgs::msg::Pose & start_pose_costmap_frame,
-  const ControlSample & u,
-  const nav_msgs::msg::Path & costmap_frame_local_plan,
-  nav2_costmap_2d::Costmap2D * costmap,
-  bool & collision) const
-{
-  collision = false;
-  double cost = 0.0;
-
-  double x = start_pose_costmap_frame.position.x;
-  double y = start_pose_costmap_frame.position.y;
-  double yaw = tf2::getYaw(start_pose_costmap_frame.orientation);
-
-  double max_obstacle_cost = 0.0;
-
-  for (int t = 0; t < time_steps_; ++t) {
-    stepDynamics(x, y, yaw, u.vx, u.vy, u.wz, model_dt_);
-
-    double obs_c = costmapObstacleCost(x, y, costmap);
-    if (!std::isfinite(obs_c)) {
-      collision = true;
-      cost += obstacle_weight_ * 1000.0;
-      break;
-    }
-    max_obstacle_cost = std::max(max_obstacle_cost, obs_c);
-  }
-
-  double ctrl_energy = u.vx * u.vx + u.vy * u.vy + u.wz * u.wz;
-  cost += control_weight_ * ctrl_energy * (time_steps_ * model_dt_);
-
-  cost += obstacle_weight_ * max_obstacle_cost;
-
-  double terminal_dist = pathEndDistanceCost(x, y, costmap_frame_local_plan);
-  cost += path_weight_ * terminal_dist * terminal_dist;
-
-  return cost;
-}
-
-// ---------------- 增强 MPPI 和 Critic 系统相关函数 ----------------
-
-void OmniPidPursuitController::initializeCritics(
-  const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent)
-{
-  critics_.clear();
-
-  // Create and configure each critic
-  auto path_align = std::make_shared<PathAlignCritic>();
-  path_align->configure(parent, plugin_name_, "PathAlignCritic");
-  critics_.push_back(path_align);
-
-  auto goal_angle = std::make_shared<GoalAngleCritic>();
-  goal_angle->configure(parent, plugin_name_, "GoalAngleCritic");
-  critics_.push_back(goal_angle);
-
-  auto prefer_forward = std::make_shared<PreferForwardCritic>();
-  prefer_forward->configure(parent, plugin_name_, "PreferForwardCritic");
-  critics_.push_back(prefer_forward);
-
-  auto obstacle = std::make_shared<ObstacleCritic>();
-  obstacle->configure(parent, plugin_name_, "ObstacleCritic");
-  critics_.push_back(obstacle);
-}
-
-bool OmniPidPursuitController::rolloutTrajectory(
-  const geometry_msgs::msg::Pose & start_pose,
-  const ControlSample & u,
-  const CriticData & data,
-  Trajectory & trajectory) const
-{
-  trajectory.clear();
-  trajectory.reserve(static_cast<size_t>(time_steps_) + 1);
-
-  double x = start_pose.position.x;
-  double y = start_pose.position.y;
-  double theta = tf2::getYaw(start_pose.orientation);
-
-  // Add initial point
-  TrajectoryPoint tp;
-  tp.x = x;
-  tp.y = y;
-  tp.theta = theta;
-  tp.vx = u.vx;
-  tp.vy = u.vy;
-  tp.wz = u.wz;
-  tp.time_from_start = 0.0;
-  trajectory.push_back(tp);
-
-  // Roll out dynamics
-  for (int t = 0; t < time_steps_; ++t) {
-    stepDynamics(x, y, theta, u.vx, u.vy, u.wz, model_dt_);
-
-    tp.x = x;
-    tp.y = y;
-    tp.theta = theta;
-    tp.vx = u.vx;
-    tp.vy = u.vy;
-    tp.wz = u.wz;
-    tp.time_from_start = (t + 1) * model_dt_;
-    trajectory.push_back(tp);
-  }
-
-  return true;
-}
-
-double OmniPidPursuitController::evaluateTrajectoryWithCritics(
-  const Trajectory & trajectory,
-  const CriticData & data,
-  bool & collision) const
-{
-  collision = false;
-  double total_cost = 0.0;
-
-  for (const auto & critic : critics_) {
-    if (!critic->isEnabled()) {
-      continue;
-    }
-
-    bool critic_collision = false;
-    double critic_cost = critic->score(trajectory, data, critic_collision);
-
-    if (critic_collision) {
-      collision = true;
-      return std::numeric_limits<double>::infinity();
-    }
-
-    total_cost += critic->getWeight() * critic_cost;
-  }
-
-  return total_cost;
-}
-
-// ---------------- 动态参数回调 ----------------
 
 rcl_interfaces::msg::SetParametersResult OmniPidPursuitController::dynamicParametersCallback(
   std::vector<rclcpp::Parameter> parameters)
@@ -1307,24 +743,6 @@ rcl_interfaces::msg::SetParametersResult OmniPidPursuitController::dynamicParame
         curvature_backward_dist_ = parameter.as_double();
       } else if (name == plugin_name_ + ".max_velocity_scaling_factor_rate") {
         max_velocity_scaling_factor_rate_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".time_steps") {
-        time_steps_ = static_cast<int>(parameter.as_double());
-      } else if (name == plugin_name_ + ".model_dt") {
-        model_dt_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".batch_size") {
-        batch_size_ = static_cast<int>(parameter.as_double());
-      } else if (name == plugin_name_ + ".vx_std") {
-        vx_std_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".vy_std") {
-        vy_std_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".wz_std") {
-        wz_std_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".path_weight") {
-        path_weight_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".obstacle_weight") {
-        obstacle_weight_ = parameter.as_double();
-      } else if (name == plugin_name_ + ".control_weight") {
-        control_weight_ = parameter.as_double();
       }
     } else if (type == ParameterType::PARAMETER_BOOL) {
       if (name == plugin_name_ + ".use_velocity_scaled_lookahead_dist") {
@@ -1340,9 +758,8 @@ rcl_interfaces::msg::SetParametersResult OmniPidPursuitController::dynamicParame
   return result;
 }
 
-}  // namespace pb_omni_pid_pursuit_controller
-
-// 注册为 nav2_core 插件
+};  // namespace pb_omni_pid_pursuit_controller
+// Register this controller as a nav2_core plugin
 #include "pluginlib/class_list_macros.hpp"
 PLUGINLIB_EXPORT_CLASS(
   pb_omni_pid_pursuit_controller::OmniPidPursuitController, nav2_core::Controller)

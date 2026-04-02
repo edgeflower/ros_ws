@@ -17,7 +17,11 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable #SetEnviormentVariable
+from launch.actions import (
+    DeclareLaunchArgument,
+    GroupAction,
+    SetEnvironmentVariable,
+)
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import LoadComposableNodes, Node
@@ -37,9 +41,9 @@ def generate_launch_description():
     params_file = LaunchConfiguration("params_file")
     use_composition = LaunchConfiguration("use_composition")
     container_name = LaunchConfiguration("container_name")
-    container_name_full = (namespace, "/", container_name)
     use_respawn = LaunchConfiguration("use_respawn")
     log_level = LaunchConfiguration("log_level")
+    lio_type = LaunchConfiguration("lio_type")
 
     lifecycle_nodes = ["map_server"]
 
@@ -67,12 +71,14 @@ def generate_launch_description():
     )
 
     declare_map_yaml_cmd = DeclareLaunchArgument(
-        "map", description="Full path to map yaml file to load"
+        "map",
+        default_value=os.path.join(bringup_dir, "map", "simulation", "rmuc_2026.yaml"),
+        description="Full path to map yaml file to load"
     )
 
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         "use_sim_time",
-        default_value="false",
+        default_value="False",
         description="Use simulation (Gazebo) clock if true",
     )
 
@@ -84,7 +90,7 @@ def generate_launch_description():
 
     declare_params_file_cmd = DeclareLaunchArgument(
         "params_file",
-        default_value=os.path.join(bringup_dir, "params", "nav2_params.yaml"),
+        default_value=os.path.join(bringup_dir, "config","reality", "odin1.yaml"),
         description="Full path to the ROS2 parameters file to use for all launched nodes",
     )
 
@@ -116,19 +122,10 @@ def generate_launch_description():
         "log_level", default_value="info", description="log level"
     )
 
-    start_point_lio_node = Node(
-        package="point_lio",
-        executable="pointlio_mapping",
-        name="point_lio",
-        output="screen",
-        respawn=use_respawn,
-        respawn_delay=2.0,
-        parameters=[
-            configured_params,
-            {"prior_pcd.prior_pcd_map_path": prior_pcd_file},
-        ],
-        arguments=["--ros-args", "--log-level", log_level],
-    )
+
+
+
+    # ---------- non-composed map_server + relocalization ----------
 
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(["not ", use_composition])),
@@ -141,16 +138,6 @@ def generate_launch_description():
                 respawn=use_respawn,
                 respawn_delay=2.0,
                 parameters=[configured_params],
-                arguments=["--ros-args", "--log-level", log_level],
-            ),
-            Node(
-                package="small_gicp_relocalization",
-                executable="small_gicp_relocalization_node",
-                name="small_gicp_relocalization",
-                output="screen",
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[configured_params, {"prior_pcd_file": prior_pcd_file}],
                 arguments=["--ros-args", "--log-level", log_level],
             ),
             Node(
@@ -168,9 +155,11 @@ def generate_launch_description():
         ],
     )
 
+    # ---------- composed map_server + lifecycle ----------
+
     load_composable_nodes = LoadComposableNodes(
         condition=IfCondition(use_composition),
-        target_container=container_name_full,
+        target_container=container_name,
         composable_node_descriptions=[
             ComposableNode(
                 package="nav2_map_server",
@@ -193,6 +182,10 @@ def generate_launch_description():
         ],
     )
 
+
+
+
+
     # Create the launch description and populate
     ld = LaunchDescription()
 
@@ -212,9 +205,7 @@ def generate_launch_description():
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
 
-    # Add the actions to launch all of the localiztion nodes
-    ld.add_action(start_point_lio_node)
-    #ld.add_action(start_small_point_lio)
+    # Add the actions to launch all of the localization nodes
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)
 

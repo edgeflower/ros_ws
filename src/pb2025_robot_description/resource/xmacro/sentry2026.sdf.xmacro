@@ -20,6 +20,20 @@
         <!--plugin for joint state sensor-->
         <plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher">
         </plugin>
+        
+        <joint name="gimbal_big_to_odin1_joint" type="fixed">
+			<pose relative_to='gimbal_big'>0.0337 0.12388 0.21475 0 0 0</pose>
+    		<parent>gimbal_big</parent>
+    		<child>odin1</child>
+		</joint>
+
+		<link name="odin1">
+    		<pose relative_to="gimbal_big_to_odin1_joint">0 0 0 0 0 0</pose>
+			<inertial>
+				<pose>0 0 0.0001 0 0 0</pose>
+				<xmacro_block name="inertia_box" m="0.00001" x="0.001" y="0.001" z="0.001"/>
+			</inertial>
+		</link>
 
         <!--plugin for light bar-->
         <plugin filename="LightBarController" name="ignition::gazebo::systems::LightBarController">

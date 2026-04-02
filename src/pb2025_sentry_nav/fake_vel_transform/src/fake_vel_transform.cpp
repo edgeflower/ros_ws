@@ -92,6 +92,7 @@ void FakeVelTransform::cmdSpinCallback(
   const rm_decision_interfaces::msg::RobotControl::SharedPtr msg)
 {
   spin_speed_ = msg->chassis_spin_vel;
+  chassis_vel_multiplier_ = msg->chassis_vel_multi;
 }
 
 void FakeVelTransform::odometryCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
@@ -114,6 +115,8 @@ void FakeVelTransform::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr
     auto smoothed = smoothVelocity(*msg);
     auto aft_tf_vel = transformVelocity(
       std::make_shared<geometry_msgs::msg::Twist>(smoothed), current_robot_base_angle_);
+    aft_tf_vel.linear.x *= chassis_vel_multiplier_;
+    aft_tf_vel.linear.y *= chassis_vel_multiplier_;
     cmd_vel_chassis_pub_->publish(aft_tf_vel);
   } else {
     latest_cmd_vel_ = msg;

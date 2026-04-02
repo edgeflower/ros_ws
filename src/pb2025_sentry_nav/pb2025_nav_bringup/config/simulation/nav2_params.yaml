@@ -67,10 +67,10 @@ point_lio:
     prop_at_freq_of_imu: True
     check_satu: True
     init_map_size: 10
-    point_filter_num: 8                                 # Options: 4, 3
+    point_filter_num: 4                                 # Options: 4, 3
     space_down_sample: True
-    filter_size_surf: 0.2                               # Options: 0.5, 0.3, 0.2, 0.15, 0.1
-    filter_size_map: 0.2                                # Options: 0.5, 0.3, 0.15, 0.1
+    filter_size_surf: 0.1                               # Options: 0.5, 0.3, 0.2, 0.15, 0.1
+    filter_size_map: 0.1                                # Options: 0.5, 0.3, 0.15, 0.1
     ivox_nearby_type: 18                                # Options: 0, 6, 18, 26
     runtime_pos_log_enable: False                       # Option: True
 
@@ -93,17 +93,17 @@ point_lio:
       lidar_type: 2                                     # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR
       scan_line: 32
       timestamp_unit: 2                                 # the unit of time/t field in the PointCloud2 rostopic: 0-second, 1-milisecond, 2-microsecond, 3-nanosecond.
-      blind: 0.35
+      blind: 0.55
 
     mapping:
       imu_en: True
       extrinsic_est_en: False                           # for aggressive motion, set this variable False
       imu_time_inte: 0.005                              # = 1 / frequency of IMU
       lidar_time_inte: 0.1
-      satu_acc: 30.0                                    # the saturation value of IMU's acceleration. not related to the units
+      satu_acc: 4.0                                     # the saturation value of IMU's acceleration. not related to the units
       satu_gyro: 35.0                                   # the saturation value of IMU's angular velocity. not related to the units
       acc_norm: 9.81                                    # 1.0 for g as unit, 9.81 for m/s^2 as unit of the IMU's acceleration
-      lidar_meas_cov: 0.001                             # 0.001
+      lidar_meas_cov: 0.001                              # 0.001
       acc_cov_output: 500.0
       gyr_cov_output: 1000.0
       b_acc_cov: 0.0001
@@ -115,15 +115,15 @@ point_lio:
       plane_thr: 0.1                                    # 0.05, the threshold for plane criteria, the smaller, the flatter a plane
       match_s: 81.0
       ivox_grid_resolution: 0.5
-      gravity: [ -5.903, 0.0, -7.834 ]        # gravity to be aligned # rpy = [0, -pi, 0]   -0.057895, 4.226431, -8.852685
-      gravity_init: [ -5.903, 0.0, -7.834 ]   # preknown gravity in the first IMU body frame, use when imu_en is False or start from a non-stationary state
-      extrinsic_T: [ 0.0, 0.0, 0.0 ]
+      gravity: [ 0.0, 0.0, 9.81 ]                         # gravity to be aligned  -6.262263, 0.047082, -7.523069
+      gravity_init: [ 0.0, 0.0, 9.81 ]                    # preknown gravity in the first IMU body frame, use when imu_en is False or start from a non-stationary state
+      extrinsic_T: [ 0.0 ,0.0 ,0.0 ]
       extrinsic_R: [ 1.0, 0.0, 0.0,
                      0.0, 1.0, 0.0,
                      0.0, 0.0, 1.0 ]
 
     odometry:
-      publish_odometry_without_downsample: True
+      publish_odometry_without_downsample: false
 
     publish:
       path_en: False                                    # False: close the path output
@@ -185,52 +185,102 @@ terrain_analysis_node:
     
 terrain_analysis:
   ros__parameters:
-    scanVoxelSize: 0.05                 # 点云下采样
-    decayTime: 0.5                      # 点云时间差阈值 大于则不会被处理
-    noDecayDis: 0.0                     # 点云距离阈值 小于该阈值不考虑时间差
-    clearingDis: 0.0                    # 该距离外的点会被清除
-    useSorting: True                    # 这个参数开起来就能上坡了；如果 use_sorting,那么就以周围点中的分位点作为地面点，否则以最低点作为地面点；周围其余点相对于地面点的高度作为通过代价，所以对于坡面，有的点的代价是正，有的是负，就相互抵消了；不要与 consider_drop 同时开启，计算上会有冲突
-    quantileZ: 0.2                      # useful if use_sorting is enabled.
-    considerDrop: False                 # 考虑凹下去的地面,开启则将相对于地面点的高度取绝对值
-    limitGroundLift: False
-    maxGroundLift: 0.3
-    clearDyObs: True                    # 清除动态物体的话，有动态物体走过的地方就走不了了
-    minDyObsDis: 0.3                    # 以下参数都是在 clear_dy_obs 的情况下才有用的
-    minDyObsAngle: 0.0
-    minDyObsRelZ: -0.3
-    absDyObsRelZThre: 0.2
-    minDyObsVFOV: -28.0
-    maxDyObsVFOV: 33.0
-    minDyObsPointNum: 1
-    noDataObstacle: False               # treat no data as obstacle
-    noDataBlockSkipNum: 0
-    minBlockPointNum: 10
-    vehicleHeight: 0.5                  # 小于车辆高度的点才会进行处理
-    voxelPointUpdateThre: 100
-    voxelTimeUpdateThre: 1.0
-    minRelZ: -1.5                       # min_rel_z 以及 max_rel_z 限制了有效点云点的Z值范围，用于对天花板和地板进行处理
-    maxRelZ: 0.5
-    disRatioZ: 0.2                      # Z 值的最大最小范围由这两个值决定，但是并不等于这两个值，是有一个比例关系的，距离机器人越远，限定范围就越大，这其中考虑了坡度
+
+    use_sim_time: false                 # 是否使用仿真时间（Gazebo仿真用true，实车一般false）
+    odometry_topic: "lidar_odometry"  # 里程计话题名称，实车可能是 "lidar_odometry" 或其他
+    laser_cloud_topic: "registered_scan"  # 点云话题名称，实车可能是 "cloud_registered" 或其他
+
+    # ---------- 点云预处理 ----------
+    scanVoxelSize: 0.05                # 点云体素下采样尺寸（单位m），越小越精细但计算量越大
+
+    decayTime: 0.5                     # 点云最大保留时间（秒），超过该时间的点会被丢弃
+    noDecayDis: 1.5                    # 小于该距离的点不受decayTime限制（0表示全部受时间限制）
+    nearDecayTime: 2.0                 # 小于noDecayDis但大于0的点的衰减时间（单位秒）
+    clearingDis: 6.0                   # 超过该距离的点会被清除（0表示不清除远点）
+
+    # ---------- 地面建模方式 ----------
+    useSorting: True                   # 是否使用分位数地面估计
+                                       # True：使用分位数作为地面点（推荐，上坡更稳定）
+                                       # False：使用最低点作为地面（对坡面不友好）
+
+    quantileZ: 0.2                     # 分位数参数（useSorting=true时生效）
+                                       # 0.2表示取20%分位高度作为地面点
+
+    considerDrop: False                # 是否考虑凹陷地形（将相对高度取绝对值）
+                                       # ⚠ 不要与useSorting同时开启，会冲突
+
+    limitGroundLift: False             # 是否限制地面抬升
+    maxGroundLift: 0.3                 # 地面最大允许抬升高度（单位m）
+
+    # ---------- 动态物体清除 ----------
+    clearDyObs: False                  # 是否清除动态物体
+                                       # ⚠ 比赛时一般关闭，否则动态物体走过会留下不可通行区域
+
+    minDyObsDis: 0.3                   # 动态物体最小检测距离（clearDyObs=true时生效）
+    minDyObsAngle: 0.0                 # 动态物体角度阈值
+    minDyObsRelZ: -0.3                 # 动态物体最小相对高度
+    absDyObsRelZThre: 0.2              # 动态物体绝对高度阈值
+    minDyObsVFOV: -28.0                # 动态物体垂直视场下界
+    maxDyObsVFOV: 33.0                 # 动态物体垂直视场上界
+    minDyObsPointNum: 1                # 判定为动态物体所需最少点数
+
+    # ---------- 无数据处理 ----------
+    noDataObstacle: False              # 是否将无数据区域视为障碍（True更保守）
+    noDataBlockSkipNum: 0              # 无数据块跳过数量
+    minBlockPointNum: 25               # 每个体素块最少点数要求
+
+    # ---------- 车辆高度过滤 ----------
+    vehicleHeight: 1.5                 # 仅处理低于车辆高度的点（过滤天花板）
+
+    # ---------- 体素更新机制 ----------
+    voxelPointUpdateThre: 100          # 单体素更新所需最少点数
+    voxelTimeUpdateThre: 1.0           # 单体素强制更新时间阈值（秒）
+
+    # ---------- 相对高度范围 ----------
+    minRelZ: -1.5                      # 相对地面最小有效高度（过滤地板反射）
+    maxRelZ: 1.5                       # 相对地面最大有效高度（过滤天花板）
+
+    disRatioZ: 0.4                     # 随距离增长的Z范围比例
+                                       # 距离越远，允许的高度范围越大（考虑坡度）
+
 
 terrain_analysis_ext:
   ros__parameters:
-    scanVoxelSize: 0.1
-    decayTime: 0.2
-    noDecayDis: 0.0
-    clearingDis: 20.0
-    useSorting: true
-    quantileZ: 0.2
-    vehicleHeight: 1.0
-    voxelPointUpdateThre: 100
-    voxelTimeUpdateThre: 2.0
-    lowerBoundZ: -1.5
-    upperBoundZ: 0.5
-    disRatioZ: 0.2
-    checkTerrainConn: False
-    terrainUnderVehicle: -0.75
-    terrainConnThre: 0.5
-    ceilingFilteringThre: 2.0
-    localTerrainMapRadius: 4.0
+
+    use_sim_time: True                 # 是否使用仿真时间
+    odometry_topic: "lidar_odometry"         # 里程计话题名称，实车可能是 "lidar_odometry" 或其他
+    laser_cloud_topic: "registered_scan"  # 点云话题名称，实车可能是 "cloud_registered" 或其他
+
+    scanVoxelSize: 0.1                 # 远场点云下采样尺寸（更粗，降低计算量）
+    decayTime: 1.0                     # 点云保留时间（远场刷新更慢）
+    noDecayDis: 0.0                    # 不受时间衰减限制的距离
+    clearingDis: 15.0                  # 超过15米的点会被清除（控制地图大小）
+
+    useSorting: true                   # 使用分位数地面建模
+    quantileZ: 0.2                     # 分位数参数
+
+    vehicleHeight: 1.5                 # 车辆高度过滤（远场略放宽）
+
+    voxelPointUpdateThre: 50          # 体素更新最小点数
+    voxelTimeUpdateThre: 1.0           # 体素更新时间阈值（远场更慢）
+
+    lowerBoundZ: -1.5                  # 有效点云Z下界
+    upperBoundZ: 1.5                   # 有效点云Z上界
+
+    disRatioZ: 0.2                     # 随距离增长的Z比例（远场更保守）
+
+    # ---------- 地形连通性检测 ----------
+    checkTerrainConn: False            # 是否检测地形连通性
+
+    terrainUnderVehicle: -1.0         # 车辆下方地形参考高度
+    terrainConnThre: 0.5               # 地形连通阈值（高度差）
+
+    # ---------- 天花板过滤 ----------
+    ceilingFilteringThre: 2.0          # 超过该高度的点直接过滤
+
+    # ---------- 局部地图大小 ----------
+    localTerrainMapRadius: 5.0         # 局部地形地图半径（单位m）
+
 
 
 fake_vel_transform:

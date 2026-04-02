@@ -30,7 +30,8 @@ def generate_launch_description():
     # Get the launch directory
     bringup_dir = get_package_share_directory("pb2025_nav_bringup")
     launch_dir = os.path.join(bringup_dir, "launch")
-
+    odin_driver_dir = get_package_share_directory("odin_ros_driver")
+    
     # Create the launch configuration variables
     namespace = LaunchConfiguration("namespace")
     slam = LaunchConfiguration("slam")
@@ -45,7 +46,8 @@ def generate_launch_description():
     rviz_config_file = LaunchConfiguration("rviz_config_file")
     use_robot_state_pub = LaunchConfiguration("use_robot_state_pub")
     use_rviz = LaunchConfiguration("use_rviz")
-    #system_communication_launch_dir = os.path.join(get_package_share_directory('ros2_standard_robot_pp'), 'launch')
+ 
+
 
     # Declare the launch arguments
     declare_namespace_cmd = DeclareLaunchArgument(
@@ -62,7 +64,7 @@ def generate_launch_description():
 
     declare_world_cmd = DeclareLaunchArgument(
         "world",
-        default_value="changdi",
+        default_value="test",
         description="Select world: 'rmul_2024' or 'rmuc_2024' (map file share the same name as the this parameter)",
     )
 
@@ -95,7 +97,7 @@ def generate_launch_description():
     declare_params_file_cmd = DeclareLaunchArgument(
         "params_file",
         default_value=os.path.join(
-            bringup_dir, "config", "reality", "nav2_params.yaml"
+            bringup_dir, "config", "reality", "odin1.yaml"
         ),
         description="Full path to the ROS2 parameters file to use for all launched nodes",
     )
@@ -133,16 +135,8 @@ def generate_launch_description():
     declare_use_rviz_cmd = DeclareLaunchArgument(
         "use_rviz", default_value="True", description="Whether to start RVIZ"
     )
+    
 
-    configured_params = ParameterFile(
-        RewrittenYaml(
-            source_file=params_file,
-            root_key=namespace,
-            param_rewrites={},
-            convert_types=True,
-        ),
-        allow_substs=True,
-    )
 
     start_robot_state_publisher_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -155,15 +149,18 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
         }.items(),
     )
-
-    start_livox_ros_driver2_node = Node(
-        package="livox_ros_driver2",
-        executable="livox_ros_driver2_node",
-        name="livox_ros_driver2",
+    start_cloud_converter_cmd = Node(
+        package="cloud_rgb_to_intensity",
+        executable="cloud_rgb_to_intensity_node",
+        name="cloud_rgb_to_intensity",
         output="screen",
-        namespace=namespace,
-        parameters=[configured_params],
+        parameters=[{
+            "input_topic": "odin1/cloud_slam",
+            "output_topic": "cloud_registered"
+        }],
     )
+
+
 
     rviz_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(launch_dir, "rviz_launch.py")),
@@ -176,7 +173,7 @@ def generate_launch_description():
     )
 
     bringup_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(launch_dir, "bringup_launch.py")),
+        PythonLaunchDescriptionSource(os.path.join(launch_dir, "odin1_bringup.launch.py")),
         launch_arguments={
             "namespace": namespace,
             "slam": slam,
@@ -190,15 +187,14 @@ def generate_launch_description():
         }.items(),
     )
 
-    joy_teleop_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(launch_dir, "joy_teleop_launch.py")),
-        launch_arguments={
-            "namespace": namespace,
-            "use_sim_time": use_sim_time,
-            "joy_config_file": params_file,
-        }.items(),
+    start_odin_driver_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(odin_driver_dir, "launch", "odin1_ros2.launch.py")
+        ),
+        # 如果需要传递参数给 odin driver，可以在这里添加
     )
 
+        
     foxglove_bridge = Node(
         package='foxglove_bridge',
         executable='foxglove_bridge',
@@ -210,6 +206,42 @@ def generate_launch_description():
             'use_tls': False              # 不用 TLS，调试最省事
         }]
     )
+    
+    bag_base_dir = os.path.expanduser('/home/sentry/Desktop/ros_ws/ros_bag')
+    time_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    bag_folder = os.path.join(bag_base_dir, f'rm_session_{time_str}')
+
+    # 2. 定义需要录制的话题列表
+    # 技巧：录制 /tf_static 和 /rosout 对后期复盘非常有用
+    topics_to_record = [
+        '/livox/lidar',
+        '/livox/imu',
+        '/game_status',
+        "/robot_status",
+        '/tf',
+        '/tf_static',
+        '/cmd_vel_chassis'
+    ]
+
+    # 3. 构建 ros2 bag record 命令
+    # --storage mcap: 核心！掉电保护格式，即使非法关机数据也不会损坏
+    # --max-bag-size: 达到 500MB 自动分包，防止单文件过大导致内存压力
+    record_command = [
+        'ros2', 'bag', 'record',
+        '-o', bag_folder,
+        '--storage', 'mcap'
+    ] + topics_to_record
+
+    # 4. 创建执行进程
+    bag_recorder = ExecuteProcess(
+        cmd=record_command,
+        output='screen',
+        # 确保在退出时发送 SIGINT，让 rosbag2 有机会写入 metadata
+        sigterm_timeout='5',
+        sigkill_timeout='5'
+    )
+
+
 
     ld = LaunchDescription()
 
@@ -228,13 +260,15 @@ def generate_launch_description():
     ld.add_action(declare_use_rviz_cmd)
     ld.add_action(declare_use_respawn_cmd)
 
+
     # Add the actions to launch all of the navigation nodes
     ld.add_action(start_robot_state_publisher_cmd)
-    ld.add_action(start_livox_ros_driver2_node)
+    ld.add_action(start_odin_driver_cmd)
+    ld.add_action(start_cloud_converter_cmd)
     ld.add_action(bringup_cmd)
-    ld.add_action(joy_teleop_cmd)
-    #ld.add_action(rviz_cmd)
-    #ld.add_action(foxglove_bridge)
+
+    ld.add_action(rviz_cmd)
+    ld.add_action(foxglove_bridge)
     #ld.add_action(bag_recorder)
 
     return ld

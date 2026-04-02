@@ -81,6 +81,7 @@ private:
   std::string smooth_mode_;
   int window_size_;
   double alpha_;
+  float chassis_vel_multiplier_ = 1.0;
 
   std::deque<geometry_msgs::msg::Twist> vel_buffer_;
   geometry_msgs::msg::Twist smoothed_vel_{};
