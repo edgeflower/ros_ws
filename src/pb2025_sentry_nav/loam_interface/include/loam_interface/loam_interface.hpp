@@ -50,6 +50,8 @@ private:
   std::string odom_frame_;
   std::string lidar_frame_;
   std::string base_frame_;
+  std::string odometry_topic_;
+  std::string lidar_topic_;
 
   bool base_frame_to_lidar_initialized_;
   tf2::Transform tf_odom_to_lidar_odom_;

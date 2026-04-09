@@ -124,6 +124,21 @@ def generate_launch_description():
         parameters=[configured_params],
         arguments=["--ros-args", "--log-level", log_level],
     )
+    
+    start_terrain_analysis_livox = Node(
+        package="terrain_analysis",
+        executable="terrainAnalysis",
+        name="terrain_analysis_livox",
+        output="screen",
+        respawn=use_respawn,
+        respawn_delay=2.0,
+        parameters=[configured_params],
+        arguments=["--ros-args", "--log-level", log_level],
+        remappings=[
+        ("/terrain_map", "/terrain_map_livox"),
+        ],
+    )
+
 
     start_terrain_analysis_ext = Node(
         package="terrain_analysis_ext",
@@ -149,6 +164,16 @@ def generate_launch_description():
                 parameters=[configured_params],
                 arguments=["--ros-args", "--log-level", log_level],
             ),
+            # Node(
+            #     package="loam_interface",
+            #     executable="loam_interface_node",
+            #     name="loam_interface_livox",
+            #     output="screen",
+            #     respawn=use_respawn,
+            #     respawn_delay=2.0,
+            #     parameters=[configured_params],
+            #     arguments=["--ros-args", "--log-level", log_level],
+            # ),
             Node(
                 package="sensor_scan_generation",
                 executable="sensor_scan_generation_node",
@@ -281,6 +306,12 @@ def generate_launch_description():
                 name="loam_interface",
                 parameters=[configured_params],
             ),
+            # ComposableNode(
+            #     package="loam_interface",
+            #     plugin="loam_interface::LoamInterfaceNode",
+            #     name="loam_interface_livox",
+            #     parameters=[configured_params],
+            # ),
             ComposableNode(
                 package="sensor_scan_generation",
                 plugin="sensor_scan_generation::SensorScanGenerationNode",
@@ -382,6 +413,7 @@ def generate_launch_description():
     ld.add_action(declare_log_level_cmd)
     # Add the actions to launch all of the navigation nodes
     ld.add_action(start_terrain_analysis)
+    # ld.add_action(start_terrain_analysis_livox)
     ld.add_action(start_terrain_analysis_ext)
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)

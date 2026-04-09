@@ -25,12 +25,16 @@ LoamInterfaceNode::LoamInterfaceNode(const rclcpp::NodeOptions & options)
 {
   this->declare_parameter<std::string>("state_estimation_topic", "");
   this->declare_parameter<std::string>("registered_scan_topic", "");
+  this->declare_parameter<std::string>("odometry_topic", "lidar_odometry");
+  this->declare_parameter<std::string>("lidar_topic", "registered_scan");
   this->declare_parameter<std::string>("odom_frame", "odom");
   this->declare_parameter<std::string>("base_frame", "");
   this->declare_parameter<std::string>("lidar_frame", "");
 
   this->get_parameter("state_estimation_topic", state_estimation_topic_);
   this->get_parameter("registered_scan_topic", registered_scan_topic_);
+  this->get_parameter("odometry_topic", odometry_topic_);
+  this->get_parameter("lidar_topic", lidar_topic_);
   this->get_parameter("odom_frame", odom_frame_);
   this->get_parameter("base_frame", base_frame_);
   this->get_parameter("lidar_frame", lidar_frame_);
@@ -40,8 +44,8 @@ LoamInterfaceNode::LoamInterfaceNode(const rclcpp::NodeOptions & options)
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
 
-  pcd_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("registered_scan", 5);
-  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("lidar_odometry", 5);
+  pcd_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(lidar_topic_, 5);
+  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(odometry_topic_, 5);
 
   pcd_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     registered_scan_topic_, 5,

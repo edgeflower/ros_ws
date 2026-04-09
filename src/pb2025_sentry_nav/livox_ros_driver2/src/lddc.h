@@ -106,13 +106,11 @@ private:
   void FillPointsToCustomMsg(CustomMsg & livox_msg, const StoragePacket & pkg);
   void PublishCustomPointData(const CustomMsg & livox_msg, const uint8_t index);
 
-  void InitPclMsg(const StoragePacket & pkg, PointCloud & cloud, uint64_t & timestamp);
-  void FillPointsToPclMsg(const StoragePacket & pkg, PointCloud & pcl_msg);
-  void PublishPclData(const uint8_t index, const uint64_t timestamp, const PointCloud & cloud);
+  void InitPclXyziMsg(const StoragePacket & pkg, PointCloud2 & cloud, uint64_t & timestamp);
+  void PublishPclXyziData(const uint8_t index, const uint64_t timestamp, const PointCloud2 & cloud);
 
   void InitImuMsg(const ImuData & imu_data, ImuMsg & imu_msg, uint64_t & timestamp);
 
-  void FillPointsToPclMsg(PointCloud & pcl_msg, LivoxPointXyzrtlt * src_point, uint32_t num);
   void FillPointsToCustomMsg(
     CustomMsg & livox_msg, LivoxPointXyzrtlt * src_point, uint32_t num, uint32_t offset_time,
     uint32_t point_interval, uint32_t echo_num);

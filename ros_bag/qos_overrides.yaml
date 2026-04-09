@@ -1,10 +1,22 @@
-/livox/lidar:
+/livox/lidar_filter:
   reliability: best_effort
   durability: volatile
   history: keep_last
   depth: 5
 
 /livox/imu:
+  reliability: best_effort
+  durability: volatile
+  history: keep_last
+  depth: 5
+
+/odin1/cloud_slam:
+  reliability: best_effort
+  durability: volatile
+  history: keep_last
+  depth: 5
+
+/odin1/odometry:
   reliability: best_effort
   durability: volatile
   history: keep_last

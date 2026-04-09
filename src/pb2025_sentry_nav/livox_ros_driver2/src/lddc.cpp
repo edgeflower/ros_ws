@@ -207,18 +207,9 @@ void Lddc::PublishPointcloud2AndCustomMsg(LidarDataQueue * queue, uint8_t index)
   }
 }
 
-/* for pcl::pxyzi */
+/* for pcl::pxyzi — publishes PointCloud2 with only XYZI fields */
 void Lddc::PublishPclMsg(LidarDataQueue * queue, uint8_t index)
 {
-#ifdef BUILDING_ROS2
-  static bool first_log = true;
-  if (first_log) {
-    std::cout << "error: message type 'pcl::PointCloud' is NOT supported in ROS2, "
-              << "please modify the 'xfer_format' field in the launch file" << std::endl;
-  }
-  first_log = false;
-  return;
-#endif
   while (!QueueIsEmpty(queue)) {
     StoragePacket pkg;
     QueuePop(queue, &pkg);
@@ -227,13 +218,11 @@ void Lddc::PublishPclMsg(LidarDataQueue * queue, uint8_t index)
       continue;
     }
 
-    PointCloud cloud;
+    PointCloud2 cloud;
     uint64_t timestamp = 0;
-    InitPclMsg(pkg, cloud, timestamp);
-    FillPointsToPclMsg(pkg, cloud);
-    PublishPclData(index, timestamp, cloud);
+    InitPclXyziMsg(pkg, cloud, timestamp);
+    PublishPclXyziData(index, timestamp, cloud);
   }
-  return;
 }
 
 void Lddc::InitPointcloud2MsgHeader(PointCloud2 & cloud)
@@ -372,25 +361,61 @@ void Lddc::PublishCustomPointData(const CustomMsg & livox_msg, const uint8_t ind
   }
 }
 
-void Lddc::InitPclMsg(const StoragePacket & pkg, PointCloud & cloud, uint64_t & timestamp)
+void Lddc::InitPclXyziMsg(const StoragePacket & pkg, PointCloud2 & cloud, uint64_t & timestamp)
 {
-  std::cout << "warning: pcl::PointCloud is not supported in ROS2, "
-            << "please check code logic" << std::endl;
-  return;
+  cloud.header.frame_id.assign(frame_id_);
+  cloud.height = 1;
+  cloud.width = pkg.points_num;
+
+  /* 4 fields: x, y, z, intensity */
+  cloud.fields.resize(4);
+  cloud.fields[0].offset = 0;
+  cloud.fields[0].name = "x";
+  cloud.fields[0].count = 1;
+  cloud.fields[0].datatype = PointField::FLOAT32;
+  cloud.fields[1].offset = 4;
+  cloud.fields[1].name = "y";
+  cloud.fields[1].count = 1;
+  cloud.fields[1].datatype = PointField::FLOAT32;
+  cloud.fields[2].offset = 8;
+  cloud.fields[2].name = "z";
+  cloud.fields[2].count = 1;
+  cloud.fields[2].datatype = PointField::FLOAT32;
+  cloud.fields[3].offset = 12;
+  cloud.fields[3].name = "intensity";
+  cloud.fields[3].count = 1;
+  cloud.fields[3].datatype = PointField::FLOAT32;
+
+  const uint32_t point_step = 16; /* 4 floats * 4 bytes */
+  cloud.point_step = point_step;
+  cloud.row_step = cloud.width * cloud.point_step;
+  cloud.is_bigendian = false;
+  cloud.is_dense = true;
+
+  if (!pkg.points.empty()) {
+    timestamp = pkg.base_time;
+  }
+  cloud.header.stamp = rclcpp::Time(timestamp);
+
+  cloud.data.resize(pkg.points_num * point_step);
+  float * dst = reinterpret_cast<float *>(cloud.data.data());
+  for (uint32_t i = 0; i < pkg.points_num; ++i) {
+    dst[i * 4 + 0] = pkg.points[i].x;
+    dst[i * 4 + 1] = pkg.points[i].y;
+    dst[i * 4 + 2] = pkg.points[i].z;
+    dst[i * 4 + 3] = 0.0f;
+  }
 }
 
-void Lddc::FillPointsToPclMsg(const StoragePacket & pkg, PointCloud & pcl_msg)
+void Lddc::PublishPclXyziData(
+  const uint8_t index, const uint64_t timestamp, const PointCloud2 & cloud)
 {
-  std::cout << "warning: pcl::PointCloud is not supported in ROS2, "
-            << "please check code logic" << std::endl;
-  return;
-}
+  Publisher<PointCloud2>::SharedPtr publisher_ptr =
+    std::dynamic_pointer_cast<Publisher<PointCloud2>>(GetCurrentPublisher(index));
 
-void Lddc::PublishPclData(const uint8_t index, const uint64_t timestamp, const PointCloud & cloud)
-{
-  std::cout << "warning: pcl::PointCloud is not supported in ROS2, "
-            << "please check code logic" << std::endl;
-  return;
+  if (kOutputToRos == output_type_) {
+    publisher_ptr->publish(cloud);
+  }
 }
 
 void Lddc::InitImuMsg(const ImuData & imu_data, ImuMsg & imu_msg, uint64_t & timestamp)
@@ -438,6 +463,9 @@ std::shared_ptr<rclcpp::PublisherBase> Lddc::CreatePublisher(
   } else if (kLivoxCustomMsg == msg_type) {
     DRIVER_INFO(*cur_node_, "%s publish use livox custom format", topic_name.c_str());
     return cur_node_->create_publisher<CustomMsg>(topic_name, queue_size);
+  } else if (kPclPxyziMsg == msg_type) {
+    DRIVER_INFO(*cur_node_, "%s publish use PointCloud2 XYZI format", topic_name.c_str());
+    return cur_node_->create_publisher<PointCloud2>(topic_name, queue_size);
   } else if (kLivoxImuMsg == msg_type) {
     DRIVER_INFO(*cur_node_, "%s publish use imu format", topic_name.c_str());
     return cur_node_->create_publisher<ImuMsg>(topic_name, queue_size);

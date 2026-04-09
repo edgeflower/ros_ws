@@ -261,7 +261,7 @@ int main(int argc, char ** argv)
     nh->create_subscription<nav_msgs::msg::Odometry>(odometry_topic, 5, odometryHandler);
 
   auto subLaserCloud =
-    nh->create_subscription<sensor_msgs::msg::PointCloud2>("registered_scan", 5, laserCloudHandler);
+    nh->create_subscription<sensor_msgs::msg::PointCloud2>(laser_cloud_topic, 5, laserCloudHandler);
 
   auto subJoystick = nh->create_subscription<sensor_msgs::msg::Joy>("joy", 5, joystickHandler);
 

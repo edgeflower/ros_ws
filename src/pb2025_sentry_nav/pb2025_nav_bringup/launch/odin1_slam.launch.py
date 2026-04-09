@@ -87,6 +87,23 @@ def generate_launch_description():
         "log_level", default_value="info", description="log level"
     )
     
+    start_point_lio_node = Node(
+        package="point_lio",
+        executable="pointlio_mapping",
+        name="point_lio",
+        output="screen",
+        respawn=use_respawn,
+        respawn_delay=2.0,
+        parameters=[
+            configured_params,
+            {"prior_pcd.enable": False},
+            {"pcd_save.pcd_save_en": True},
+        ],
+        arguments=["--ros-args", "--log-level", log_level],
+        remappings=[
+            ("cloud_registered", "cloud_registered_livox"),
+        ],
+    )
 
 
     start_map_saver_server_cmd = Node(
@@ -185,6 +202,7 @@ def generate_launch_description():
     ld.add_action(start_map_saver_server_cmd)
     ld.add_action(start_lifecycle_manager_cmd)
 
+    #ld.add_action(start_point_lio_node)
     ld.add_action(start_pointcloud_to_laserscan_node)
     ld.add_action(start_sync_slam_toolbox_node)
     ld.add_action(start_static_transform_node)

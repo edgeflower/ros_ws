@@ -21,7 +21,7 @@
           </RecoveryNode>
         </RateController>
         <RecoveryNode name="FollowPath"
-                      number_of_retries="50">
+                      number_of_retries="10">
           <FollowPath path="{path}"
                       controller_id="FollowPath"/>
           <ClearEntireCostmap name="ClearLocalCostmap-Context"

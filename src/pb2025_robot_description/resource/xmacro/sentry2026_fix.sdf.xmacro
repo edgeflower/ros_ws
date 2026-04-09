@@ -15,7 +15,7 @@
         <pose>0 0 0.15  0 0 0</pose>
         <xmacro_block name="rm26_standard_robot" sticker_type="${global_armor_sticker_type}" chassis_height="${chassis_height}"/>
         <!--livox-->
-        <xmacro_block name="livox" prefix="front_" parent="gimbal_big" pose="0.106 0.0 0.35 0.0 3.14159265 0.0" update_rate="20" samples="1875"/>
+        <xmacro_block name="livox" prefix="front_" parent="odin1" pose="-0.1085847 -0.1296776 0.027 0.0 -0.64577 0.0" update_rate="20" samples="1875"/>
         <xmacro_block name="industrial_camera" prefix="gimbal_pitch_" parent="gimbal_pitch" pose="0.10327 0.004416 0.044494 0 0 0" update_rate="30" horizontal_fov="1" width="1920" height="1080"/>
         <!--plugin for joint state sensor-->
         <plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher">

@@ -135,6 +135,15 @@ def generate_launch_description():
     declare_use_rviz_cmd = DeclareLaunchArgument(
         "use_rviz", default_value="True", description="Whether to start RVIZ"
     )
+    configured_params = ParameterFile(
+        RewrittenYaml(
+            source_file=params_file,
+            root_key=namespace,
+            param_rewrites={},
+            convert_types=True,
+        ),
+        allow_substs=True,
+    )
     
 
 
@@ -149,6 +158,14 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
         }.items(),
     )
+    start_livox_ros_driver2_node = Node(
+        package="livox_ros_driver2",
+        executable="livox_ros_driver2_node",
+        name="livox_ros_driver2",
+        output="screen",
+        namespace=namespace,
+        parameters=[configured_params],
+    )
     start_cloud_converter_cmd = Node(
         package="cloud_rgb_to_intensity",
         executable="cloud_rgb_to_intensity_node",
@@ -158,6 +175,12 @@ def generate_launch_description():
             "input_topic": "odin1/cloud_slam",
             "output_topic": "cloud_registered"
         }],
+    )
+    start_cloud_filter_cmd = Node(
+        package="cpp_lidar_filter",
+        executable="lidar_filter_node",
+        name="cpp_lidar_filter",
+        output="screen",
     )
 
 
@@ -263,12 +286,14 @@ def generate_launch_description():
 
     # Add the actions to launch all of the navigation nodes
     ld.add_action(start_robot_state_publisher_cmd)
+    ld.add_action(start_livox_ros_driver2_node)
+    ld.add_action(start_cloud_filter_cmd)
     ld.add_action(start_odin_driver_cmd)
     ld.add_action(start_cloud_converter_cmd)
     ld.add_action(bringup_cmd)
 
     ld.add_action(rviz_cmd)
-    ld.add_action(foxglove_bridge)
+    #ld.add_action(foxglove_bridge)
     #ld.add_action(bag_recorder)
 
     return ld
