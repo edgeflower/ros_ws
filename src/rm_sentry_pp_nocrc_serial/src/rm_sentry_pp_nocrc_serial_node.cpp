@@ -185,6 +185,7 @@ void Node::onRobotControl(const rm_decision_interfaces::msg::RobotControl& msg)
     current_cmd_state_.data.gimbal_big.yaw_vel = msg.gimbal_big_yaw_vel;
     target_spin_vel_ = msg.chassis_spin_vel;
     follow_gimbal_big_ = msg.follow_gimbal_big;
+    track_status_ = msg.track_status;
     tx_pending_ = true;
 }
 
@@ -618,7 +619,7 @@ void Node::publishImu(const rm_sentry_pp::ReceiveImuData& imu_data)
     }
 
     // double corrected_yaw = imu_data.data.yaw - imu_yaw_offset_;
-
+    /*
     tf2::Quaternion q;
     q.setRPY(imu_data.data.roll, imu_data.data.pitch, imu_data.data.yaw);
     imu.orientation = tf2::toMsg(q);
@@ -626,7 +627,7 @@ void Node::publishImu(const rm_sentry_pp::ReceiveImuData& imu_data)
     imu.angular_velocity.x = imu_data.data.roll_vel;
     imu.angular_velocity.y = imu_data.data.pitch_vel;
     imu.angular_velocity.z = imu_data.data.yaw_vel;
-    imu_pub_->publish(imu);
+    imu_pub_->publish(imu);*/
 }
 
 void Node::publishRobotInfo(const rm_sentry_pp::ReceiveRobotInfoData& robot_info_data)

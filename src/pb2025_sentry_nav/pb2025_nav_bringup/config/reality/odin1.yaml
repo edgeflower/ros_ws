@@ -494,12 +494,12 @@ controller_server:
       temperature: 0.25 # 0 mean use control with best cost, huge value will lead to just taking mean of all trajectories without cost consideration.
       gamma: 0.015 # A trade-off between smoothness (high) and low energy (low). This is a complex parameter that likely won’t need to be changed from the default.
       motion_model: "Omni"
-      visualize: false # set to true to visualize the trajectories, but it will slow down the computation by a lot
+      visualize: true # set to true to visualize the trajectories, but it will slow down the computation by a lot
       reset_period: 1.0 # Required time of inactivity to reset optimizer (only in Humble
       regenerate_noises: false
       retry_attempt_limit: 3 # Number of attempts to find feasible trajectory on failure for soft-resets before reporting total failure.
       TrajectoryVisualizer:
-        trajectory_step: 5
+        trajectory_step: 1000
         time_step: 3
       # AckermannConstraints:
       #   min_turning_r: 0.2

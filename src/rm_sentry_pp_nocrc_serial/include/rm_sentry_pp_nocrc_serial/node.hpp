@@ -152,8 +152,9 @@ private:
     float target_gimbal_yaw_angle_ = 0.0f;
     rclcpp::Time last_gimbal_angle_update_;
     float gimbal_big_yaw_angle_ = 0.0f;
-    float follow_gimbal_big_ = 0.0f;
+    bool follow_gimbal_big_ = false;
     float gimbal_yaw_ = 0.0f;
+    bool track_status_ = false;
 
 
     // Gimbal path follow - high frequency resampling
