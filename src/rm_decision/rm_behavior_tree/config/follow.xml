@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="follow">
+  <BehaviorTree ID="follow">
+    <Sequence>
+      <ReactiveSequence name="Perception">
+        <SubArmors topic_name="/target_tracking"
+                   armors="{armors}"/>
+        <EnemyPositionFilter enemy_position="{armors}"
+                             alpha="0.0"
+                             max_distance="3.5"
+                             history_size="7"
+                             zero_threshold="0.1"
+                             min_output_interval="0.1"
+                             confidence_half_life="1.0"
+                             min_confidence="0.0"
+                             filtered_position="{filtered_target}"/>
+        <ConfidenceHysteresis target="{filtered_target}"
+                              upper_threshold="0.5"
+                              lower_threshold="0.35"
+                              grace_period="2.5"
+                              enable_hold_position="true"
+                              current_confidence="{current_confidence}"
+                              hysteresis_state="{hysteresis_state}"/>
+      </ReactiveSequence>
+      <GetLocation topic_name="lidar_odometry"
+                   robot_location="{robot_pose}"/>
+      <ReactiveFallback name="BehaviorSelector">
+        <ReactiveSequence name="AttackEnemy">
+          <CheckHysteresisState state="{hysteresis_state}"
+                                expected_state="HIGH"/>
+          <ArmorToGoal target_message="{filtered_target}"
+                       robot_pose="{robot_pose}"
+                       offset_distance="2.0"
+                       predict_time="0.0"
+                       max_chase_distance="10.0"
+                       goal_pose="{attack_goal}"/>
+          <ChaseGoal goal_pose="{attack_goal}"
+                     action_name="/navigate_to_pose"
+                     min_goal_distance="0.3"
+                     max_resend_interval="2.0"
+                     chase_timeout="15.0"
+                     server_timeout="5.0"/>
+        </ReactiveSequence>
+        <ReactiveSequence name="HoldPositionMode">
+          <CheckHysteresisState state="{hysteresis_state}"
+                                expected_state="GRACE_PERIOD"/>
+          <HoldPosition target="{filtered_target}"
+                        enabled="true"
+                        robot_pose="{robot_pose}"
+                        held_goal="{hold_goal}"
+                        is_holding="{is_holding}"/>
+          <SendGoal goal_pose="{hold_goal}"
+                    action_name="/navigate_to_pose"
+                    min_goal_distance="0.5"
+                    current_goal_id="-2"
+                    reached_goal_id="{hold_reached_goal_id}"/>
+        </ReactiveSequence>
+      </ReactiveFallback>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="ArmorToGoal">
+      <input_port name="target_message"
+                  default="{target_message}"/>
+      <input_port name="robot_pose"
+                  default="{robot_pose}"/>
+      <input_port name="offset_distance"
+                  default="2.0"/>
+      <input_port name="predict_time"
+                  default="0.5"/>
+      <input_port name="max_chase_distance"
+                  default="10.0"/>
+      <output_port name="goal_pose"
+                   default="{goal}"/>
+    </Action>
+    <Action ID="ChaseGoal">
+      <input_port name="goal_pose"
+                  default="{attack_goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+      <input_port name="min_goal_distance"
+                  default="0.3"/>
+      <input_port name="max_resend_interval"
+                  default="2.0"/>
+      <input_port name="chase_timeout"
+                  default="15.0"/>
+      <input_port name="server_timeout"
+                  default="5.0"/>
+    </Action>
+    <Condition ID="CheckHysteresisState">
+      <input_port name="state"
+                  default="{hysteresis_state}"/>
+      <input_port name="expected_state"
+                  default="HIGH"/>
+    </Condition>
+    <Condition ID="ConfidenceHysteresis">
+      <input_port name="target"
+                  default="{filtered_target}"/>
+      <input_port name="upper_threshold"
+                  default="0.4"/>
+      <input_port name="lower_threshold"
+                  default="0.3"/>
+      <input_port name="grace_period"
+                  default="1.5"/>
+      <input_port name="enable_hold_position"
+                  default="true"/>
+      <output_port name="current_confidence"
+                   default="{current_confidence}"/>
+      <output_port name="hysteresis_state"
+                   default="{hysteresis_state}"/>
+    </Condition>
+    <Action ID="EnemyPositionFilter"
+            editable="true">
+      <input_port name="enemy_position"
+                  default="{armors}"/>
+      <input_port name="alpha"
+                  default="0.3"/>
+      <input_port name="max_distance"
+                  default="1.5"/>
+      <input_port name="history_size"
+                  default="5"/>
+      <input_port name="zero_threshold"
+                  default="0.1"/>
+      <input_port name="min_output_interval"
+                  default="0.1"/>
+      <input_port name="confidence_half_life"
+                  default="1.0"/>
+      <input_port name="min_confidence"
+                  default="0.0"/>
+      <output_port name="filtered_position"
+                   default="{filtered_position}"/>
+    </Action>
+    <Action ID="GetLocation"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/red_standard_robot1/lidar_odometry"/>
+      <output_port name="robot_location"
+                   default="{current_location}"/>
+    </Action>
+    <Action ID="HoldPosition">
+      <input_port name="target"
+                  default="{filtered_target}"/>
+      <input_port name="enabled"
+                  default="true"/>
+      <input_port name="robot_pose"
+                  default="{robot_pose}"/>
+      <output_port name="held_goal"
+                   default="{goal}"/>
+      <output_port name="is_holding"
+                   default="{is_holding}"/>
+    </Action>
+    <Action ID="SendGoal">
+      <input_port name="goal_pose"
+                  default="{best_goal}"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+      <input_port name="min_goal_distance"
+                  default="0.5"/>
+      <input_port name="current_goal_id"
+                  default="{goal_id}"/>
+      <output_port name="reached_goal_id"
+                   default="{reached_goal_id}"/>
+    </Action>
+    <Action ID="SubArmors">
+      <input_port name="topic_name"
+                  default="/detector/armors"/>
+      <output_port name="armors"
+                   default="{armors}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

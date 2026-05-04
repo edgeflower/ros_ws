@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="StuckDetectionDemo">
+
+  <!-- ========================================
+       卡死检测示例行为树
+
+       功能：检测机器人是否被卡住，并执行恢复动作
+
+       使用场景：
+       - 机器人在障碍物中被卡住
+       - 发送速度命令但无法移动
+
+       逻辑：
+       1. 订阅 /odometry 和 /cmd_vel_chassis
+       2. 检测是否卡住（速度命令大但位移小）
+       3. 如果卡住，执行恢复动作（后退/转向）
+       ======================================== -->
+
+  <BehaviorTree ID="StuckDetectionDemo">
+    <ReactiveSequence name="MainSequence">
+
+      <!-- 1. 订阅里程计获取机器人位置 -->
+      <GetRobotLocation topic_name="/odometry"
+                        robot_pose="{robot_pose}"/>
+
+      <!-- 2. 订阅速度命令 -->
+      <SubCmdVel topic_name="/cmd_vel_chassis"
+                 cmd_vel="{cmd_vel}"/>
+
+      <!-- 3. 卡死检测 + 恢复 -->
+      <Fallback name="StuckRecoveryFallback">
+
+        <!-- 正常情况：没有卡住，继续执行 -->
+        <IsStuck cmd_vel="{cmd_vel}"
+                 robot_pose="{robot_pose}"
+                 velocity_threshold="1.0"
+                 distance_threshold="0.5"
+                 time_window="3.0"/>
+
+        <!-- 卡住时执行恢复序列 -->
+        <Sequence name="RecoverySequence">
+          <PrintMessage message="检测到机器人卡住，执行恢复动作..."/>
+
+          <!-- 取消当前导航 -->
+          <AbortNavigation action_name="/navigate_to_pose"/>
+
+          <!-- 后退恢复 -->
+          <RobotControl linear_x="-0.3"
+                        linear_y="0.0"
+                        angular_z="0.0"
+                        duration="2.0"/>
+
+          <!-- 原地转向 -->
+          <RobotControl linear_x="0.0"
+                        linear_y="0.0"
+                        angular_z="0.5"
+                        duration="1.5"/>
+
+          <PrintMessage message="恢复动作完成"/>
+        </Sequence>
+
+      </Fallback>
+
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- ========================================
+       更复杂的示例：导航 + 卡死检测
+       ======================================== -->
+
+  <BehaviorTree ID="NavigationWithStuckRecovery">
+    <ReactiveSequence name="NavWithRecovery">
+
+      <!-- 订阅数据 -->
+      <GetRobotLocation topic_name="/odometry"
+                        robot_pose="{robot_pose}"/>
+      <SubCmdVel topic_name="/cmd_vel_chassis"
+                 cmd_vel="{cmd_vel}"/>
+
+      <!-- 导航 + 卡死监控 -->
+      <Fallback>
+
+        <!-- 正常导航 -->
+        <Sequence name="NavigationSequence">
+          <SendGoal goal_pose="{target_goal}"
+                    action_name="/navigate_to_pose"/>
+          <IsStuck cmd_vel="{cmd_vel}"
+                   robot_pose="{robot_pose}"
+                   velocity_threshold="0.8"
+                   distance_threshold="0.3"
+                   time_window="5.0"/>
+        </Sequence>
+
+        <!-- 卡住恢复 -->
+        <Sequence name="StuckRecovery">
+          <PrintMessage message="导航卡住，尝试恢复..."/>
+          <AbortNavigation action_name="/navigate_to_pose"/>
+          <RobotControl linear_x="-0.5" linear_y="0.0" angular_z="0.0" duration="2.0"/>
+          <RobotControl linear_x="0.0" linear_y="0.0" angular_z="0.8" duration="2.0"/>
+        </Sequence>
+
+      </Fallback>
+
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- ========================================
+       Groot 节点模型描述
+       ======================================== -->
+
+  <TreeNodesModel>
+
+    <!-- SubCmdVel 订阅节点 -->
+    <Action ID="SubCmdVel">
+      <input_port name="topic_name" default="/cmd_vel_chassis"/>
+      <output_port name="cmd_vel" default="{cmd_vel}"/>
+    </Action>
+
+    <!-- IsStuck 条件节点 -->
+    <Condition ID="IsStuck">
+      <input_port name="cmd_vel" default="{cmd_vel}"/>
+      <input_port name="robot_pose" default="{robot_pose}"/>
+      <input_port name="velocity_threshold" default="1.0">
+        触发检测的最小速度阈值 (m/s)
+      </input_port>
+      <input_port name="distance_threshold" default="0.5">
+        判定为卡住的最大移动距离 (m)
+      </input_port>
+      <input_port name="time_window" default="3.0">
+        检测时间窗口 (s)
+      </input_port>
+    </Condition>
+
+    <!-- GetRobotLocation 订阅节点 -->
+    <Action ID="GetRobotLocation">
+      <input_port name="topic_name" default="/odometry"/>
+      <output_port name="robot_pose" default="{robot_pose}"/>
+    </Action>
+
+    <!-- PrintMessage 调试节点 -->
+    <Action ID="PrintMessage">
+      <input_port name="message" default=""/>
+    </Action>
+
+    <!-- AbortNavigation 节点 -->
+    <Action ID="AbortNavigation">
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+    <!-- RobotControl 节点 -->
+    <Action ID="RobotControl">
+      <input_port name="linear_x" default="0.0"/>
+      <input_port name="linear_y" default="0.0"/>
+      <input_port name="angular_z" default="0.0"/>
+      <input_port name="duration" default="1.0"/>
+    </Action>
+
+    <!-- SendGoal 节点 -->
+    <Action ID="SendGoal">
+      <input_port name="goal_pose"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+    </Action>
+
+  </TreeNodesModel>
+
+</root>

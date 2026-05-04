@@ -6,6 +6,7 @@
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/publisher_base.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rm_decision_interfaces/msg/detail/enemy_location__struct.hpp>
 #include <rm_decision_interfaces/msg/detail/sentry_posture_status__struct.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <visualization_msgs/msg/marker.hpp>
@@ -41,7 +42,7 @@
 #include <rm_decision_interfaces/msg/robot_status.hpp>
 #include<rm_decision_interfaces/msg/rfid.hpp>
 #include<rm_decision_interfaces/msg/rfid_parse.hpp>
-
+#include<rm_decision_interfaces/msg/enemy_location.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
 namespace rm_sentry_pp_nocrc_serial {
@@ -82,6 +83,7 @@ private:
     void publishAllRobotHp(const rm_sentry_pp::ReceiveAllRobotHpData& all_robot_hp_data);
     void publishRobotLocation(const rm_sentry_pp::ReceiveRobotLocation& robot_location_data);
     void publishRfid(const rm_sentry_pp::ReceiveRfid& rfid_msg);
+    void publishEnemyLocation(const rm_sentry_pp::ReceiveEnemyLocation& enemy_location_data);
 
     void publishTargetTracking(const talos::chrial::TalosData& talos_data);
 
@@ -106,6 +108,7 @@ private:
     double gimbal_lookahead_base_ { 0.8 };
     double gimbal_lookahead_k_ { 0.4 };
     double gimbal_yaw_smooth_alpha_ { 0.3 };
+    bool nav_status_ = false;
 
     // Odometry parameters
     std::string odom_topic_;
@@ -118,6 +121,7 @@ private:
     rclcpp::Publisher<armor_interfaces::msg::Target>::SharedPtr target_tracking_pub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr gimbal_yaw_marker_pub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr lookahead_point_marker_pub_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr enemy_marker_pub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_chassis_sub_;
     rclcpp::Subscription<rm_decision_interfaces::msg::RobotControl>::SharedPtr robot_control_sub_;
     rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
@@ -129,6 +133,7 @@ private:
     rclcpp::Publisher<rm_decision_interfaces::msg::AllRobotHP>::SharedPtr all_robot_hp_pub_;
     rclcpp::Publisher<rm_decision_interfaces::msg::FriendLocation>::SharedPtr robot_location_pub_;
     rclcpp::Publisher<rm_decision_interfaces::msg::RFIDParse>::SharedPtr rfid_pub_;
+    rclcpp::Publisher<rm_decision_interfaces::msg::EnemyLocation>::SharedPtr enemy_location_pub_;
 
     // serial
     SerialPort sp_;
@@ -155,6 +160,7 @@ private:
     bool follow_gimbal_big_ = false;
     float gimbal_yaw_ = 0.0f;
     bool track_status_ = false;
+    double gimbal_big_yaw_angle_state_;
 
 
     // Gimbal path follow - high frequency resampling
@@ -174,8 +180,7 @@ private:
     double imu_yaw_offset_ = 0.0;
     bool is_calibrating_imu_ = false;
     rclcpp::Time last_imu_calibration_time_;
-    float imu_data_cached;  // imu 一上电位姿
-    static constexpr double IMU_CALIBRATION_THRESHOLD = 0.05;
+    static constexpr double IMU_CALIBRATION_THRESHOLD = 0.05;  // 保留，gimbal_yaw 校准用
     static constexpr double IMU_CALIBRATION_INTERVAL = 2.0;
 
     // Gimbal big drift correction (protected by tx_mtx_)
@@ -204,20 +209,7 @@ private:
     // chiral
     std::unique_ptr<talos::chiral::ipc::TalosDataReader> chiral_reader_;
 
-    // Target lost prediction
-    struct LastKnownTarget {
-        std::atomic<bool> valid{false};
-        rclcpp::Time last_update_time;
-        double position_x = 0, position_y = 0, position_z = 0;
-        double velocity_x = 0, velocity_y = 0, velocity_z = 0;
-        double yaw = 0, v_yaw = 0;
-        double radius_1 = 0, radius_2 = 0, dz = 0;
-        int32_t armors_num = 0;
-        std::string id;
-        talos::chrial::TargetStateKind target_kind = talos::chrial::TargetStateKind::Robot;
-        std::atomic<double> confidence{1.0};
-        double predicted_x = 0, predicted_y = 0, predicted_z = 0;
-    } last_known_target_;
+
 
     // Odometry cache
     std::mutex odom_mtx_;
@@ -242,4 +234,3 @@ private:
 };
 
 } // namespace rm_sentry_pp_nocrc_serial
-

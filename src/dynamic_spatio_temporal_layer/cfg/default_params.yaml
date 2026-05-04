@@ -1,0 +1,39 @@
+stvl_far_voxel_layer:
+  plugin: "dynamic_spatio_temporal_layer::DynamicSpatioTemporalLayer"
+  enabled: true
+
+  # Parent STVL parameters
+  voxel_size: 0.05
+  decay_model: 0              # Must be LINEAR(0)
+  voxel_decay: 3.0            # Must equal near_decay
+  track_unknown_space: true
+  mark_threshold: 1
+  combination_method: 1
+  update_footprint_enabled: true
+  publish_voxel_map: false
+  transform_tolerance: 0.2
+  mapping_mode: false
+
+  observation_sources: livox_clearing
+  livox_clearing:
+    data_type: PointCloud2
+    topic: /livox/lidar
+    marking: false
+    clearing: true
+    obstacle_range: 8.0
+    raytrace_range: 9.0
+    model_type: 1
+    vertical_fov_angle: 1.03
+    vertical_fov_offset: -0.3927
+    horizontal_fov_angle: 6.28
+
+  # Our parameters
+  near_decay: 3.0
+  far_decay: 1.5
+  near_threshold: 1.5
+  far_threshold: 8.0
+  base_min_z: 0.15
+  base_max_z: 0.5
+  odom_timeout: 0.5
+  odom_topic: "/odin1/odometry_highfreq"
+  pointcloud_topic: "/livox/lidar"

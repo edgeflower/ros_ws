@@ -20,13 +20,13 @@ def generate_launch_description():
     
     style_cmd = DeclareLaunchArgument(
             'style',
-            default_value="liu", # attack_robot  defense_robot  test1 test2 test3
+            default_value="follow", # attack_robot  defense_robot  test1 test2 test3  demo_multi_nav  demo_patrol_loop
             description="选取哪一个进攻防御方式  map1  test0	test test2	rmul2025_01 test3 "
         )
 
     use_sim_time_cmd = DeclareLaunchArgument(
             'use_sim_time',
-            default_value="false",
+            default_value="true",
             description="是否启用ros模拟时间"
         )
     
@@ -84,8 +84,7 @@ def generate_launch_description():
         "/robot_status",
         '/tf',
         '/tf_static',
-        '/cmd_vel_chassis',
-        '/goal_pose',
+        '/cmd_vel_chassis'
     ]
 
     # 3. 构建 ros2 bag record 命令

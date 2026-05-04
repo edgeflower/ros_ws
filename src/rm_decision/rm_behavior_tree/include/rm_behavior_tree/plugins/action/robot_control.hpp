@@ -19,10 +19,11 @@ public:
         return{BT::InputPort<bool>("stop_gimbal_scan"),
                BT::InputPort<float>("chassis_spin_vel"),
                BT::InputPort<float>("gimbal_big_yaw_vel"),
-               BT::InputPort<float>("gimbal_big_yaw_angle"),
-              BT::InputPort<float>("follow_gimbal_big"),
-            BT::InputPort<float>("chassis_vel_multi"),
-          BT::InputPort<bool>("stop_chassis_vel_multi")};
+               BT::InputPort<float>("gimbal_big_yaw_angle"), 
+              BT::InputPort<bool>("follow_gimbal_big"),  // 是否启动底盘跟随大云台
+            BT::InputPort<float>("chassis_vel_multi"),   // 底盘速率倍增
+          BT::InputPort<bool>("stop_chassis_vel_multi"), // 是否停止底盘速率倍增
+        BT::InputPort<bool>("track_status")}; // 是否启动履带
      }
 private:
  bool chassis_vel_multi_;

@@ -97,6 +97,10 @@ void LoamInterfaceNode::odometryCallback(const nav_msgs::msg::Odometry::ConstSha
   out.pose.pose.position.y = origin.y();
   out.pose.pose.position.z = origin.z();
   out.pose.pose.orientation = tf2::toMsg(tf_odom_to_lidar.getRotation());
+  out.twist.twist = msg->twist.twist;
+  out.twist.twist.linear.z = 0.0;
+  out.twist.twist.angular.x = 0.0;
+  out.twist.twist.angular.y = 0.0;
 
   odom_pub_->publish(out);
 }

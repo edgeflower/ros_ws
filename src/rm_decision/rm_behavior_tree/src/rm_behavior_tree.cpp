@@ -78,6 +78,7 @@ int main(int argc, char ** argv)
         "is_outpost_ok",
         "get_current_location",
         "move_around",
+        "back_up",
         "print_message",
         "bag_recorder",
     };
@@ -103,6 +104,38 @@ int main(int argc, char ** argv)
     RegisterRosNode(factory, BT::SharedLibrary::getOSName("get_location"), params_get_location);
 
     RegisterRosNode(factory, BT::SharedLibrary::getOSName("robot_control"), params_robot_control);
+
+    // 导航插件：需要独立的 RosNodeParams，各自连接不同的 action server
+    BT::RosNodeParams params_nav;
+    params_nav.nh = std::make_shared<rclcpp::Node>("nav_action");
+    params_nav.server_timeout = std::chrono::milliseconds(5000);
+    params_nav.wait_for_server_timeout = std::chrono::milliseconds(10000);
+
+    // PubNav2Goal：话题发布目标点（不需要 action server）
+    params_nav.default_port_value = "/goal_pose";
+    RegisterRosNode(factory, BT::SharedLibrary::getOSName("pub_nav2_goal"), params_nav);
+
+    // SendNav2Goal：Nav2 单点导航 action
+    params_nav.default_port_value = "/navigate_to_pose";
+    RegisterRosNode(factory, BT::SharedLibrary::getOSName("send_nav2_goal"), params_nav);
+
+    // FollowWaypoints：Nav2 多点逐站到达 action
+    params_nav.default_port_value = "/follow_waypoints";
+    RegisterRosNode(factory, BT::SharedLibrary::getOSName("follow_waypoints"), params_nav);
+
+    // ChaseGoal：追击动态目标（共享 nav action server 节点）
+    params_nav.default_port_value = "/navigate_to_pose";
+    RegisterRosNode(factory, BT::SharedLibrary::getOSName("chase_goal"), params_nav);
+
+    // NavigateThroughPoses：Nav2 穿越导航 action
+    params_nav.default_port_value = "/navigate_through_poses";
+    RegisterRosNode(factory, BT::SharedLibrary::getOSName("navigate_through_poses"), params_nav);
+
+    // Patrol 巡逻工具节点（纯 BT 节点，不需要 RosNodeParams）
+    factory.registerFromPlugin(BT::SharedLibrary::getOSName("patrol_utils"));
+
+    // GetEnemyLocationInMap (裁判系坐标 → map 坐标变换)
+    factory.registerFromPlugin(BT::SharedLibrary::getOSName("get_enemy_location_in_map"));
     //--------------------------创建行为树------------------------------------
     // 分别注册发送目标和机器人控制两个插件，生成行为树结构，XML中定义了各个节点和他们之间的连接关系
     auto tree = factory.createTreeFromFile(bt_xml_path);

@@ -2,6 +2,7 @@
 #define RM_BEHAVIOR_TREE__PLUGINS__CONDITION__IS_STATUS_OK_HPP_
 #include "behaviortree_cpp/condition_node.h"
 #include "rm_decision_interfaces/msg/robot_status.hpp"
+#include <behaviortree_cpp/basic_types.h>
 namespace rm_behavior_tree{
 /**
 * @brief Action 节点，用于判断机器人状态是否正常
@@ -21,7 +22,8 @@ class IsStatusOKAction : public BT::SimpleConditionNode{
         return {
             BT::InputPort<rm_decision_interfaces::msg::RobotStatus>("message"),
             BT::InputPort<int>("hp_threshold"),
-            BT::InputPort<int>("heat_threshold")
+            BT::InputPort<int>("heat_threshold"),
+            BT::InputPort<int>("shot_threshold")
         };
     }
 };

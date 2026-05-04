@@ -31,6 +31,15 @@ using BackUpAction = nav2_msgs::action::BackUp;
 namespace pb_nav2_behaviors
 {
 
+struct DirectionResult
+{
+  bool found = false;
+  float best_angle = 0.0f;
+  float clear_distance = 0.0f;
+  float penetration_distance = 0.0f;
+  bool desperate = false;
+};
+
 /**
  * @class pb_nav2_behaviors::BackUpFreeSpace
  * @brief An enhanced back_up action that move toward free space
@@ -79,12 +88,15 @@ protected:
   std::vector<geometry_msgs::msg::Point> gatherFreePoints(
     const nav2_msgs::msg::Costmap & costmap, geometry_msgs::msg::Pose2D pose, float radius);
 
-  float findBestDirection(
+  DirectionResult findBestDirection(
     const nav2_msgs::msg::Costmap & costmap, geometry_msgs::msg::Pose2D pose, float start_angle,
-    float end_angle, float radius, float angle_increment);
+    float end_angle, float radius, float angle_increment, float excluded_angle = std::numeric_limits<float>::max());
 
   void visualize(
     geometry_msgs::msg::Pose2D pose, float radius, float first_safe_angle, float last_unsafe_angle);
+
+  unsigned char costAtPosition(float x, float y) const;
+  bool isPositionFree(float x, float y) const;
 
   rclcpp::Client<nav2_msgs::srv::GetCostmap>::SharedPtr costmap_client_;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>>
@@ -95,6 +107,17 @@ protected:
   std::string service_name_;
   double max_radius_;
   bool visualize_;
+  double inscribed_radius_;
+  double min_escape_distance_;
+  int obstacle_cost_threshold_;
+  double command_speed_;
+  float penetration_distance_ = 0.0f;
+  bool starting_in_danger_ = false;
+  nav2_msgs::msg::Costmap cached_costmap_;
+  int re_search_count_ = 0;
+  rclcpp::Time global_start_time_;
+  float last_failed_angle_ = std::numeric_limits<float>::max();
+  static constexpr double GLOBAL_TIMEOUT = 10.0;
 };
 
 }  // namespace pb_nav2_behaviors

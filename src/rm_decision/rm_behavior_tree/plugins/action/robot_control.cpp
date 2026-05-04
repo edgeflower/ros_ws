@@ -16,8 +16,8 @@ bool RobotControlAction::setMessage(rm_decision_interfaces::msg::RobotControl & 
   getInput("chassis_spin_vel", msg.chassis_spin_vel);
   getInput("gimbal_big_yaw_vel",msg.gimbal_big_yaw_vel);
   getInput("gimbal_big_yaw_angle",msg.gimbal_big_yaw_angle);
-  getInput("follow_gimbal_big",msg.follow_gimbal_big); // 0 不跟随 ，1 跟随
-  
+  getInput("follow_gimbal_big",msg.follow_gimbal_big); // false 不跟随 ，true 跟随
+  getInput("track_status",msg.track_status); // 是否启动履带
   getInput("stop_chassis_vel_multi",chassis_vel_multi_); // 是否阻止底盘倍率 true false
   if (chassis_vel_multi_ == true){
     msg.chassis_vel_multi = 1.0;

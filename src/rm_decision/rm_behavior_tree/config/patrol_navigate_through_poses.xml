@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="MainTree">
+
+  <!-- 主行为树：穿越导航巡逻 + 反应式应急 -->
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- ========== 阶段1: 穿越导航到初始位置 ========== -->
+      <NavigateThroughPoses waypoint_file="/home/lu/3V3/config/waypoints/patrol.csv"
+                             frame_id="map"
+                             current_waypoint="{wp_idx}"/>
+
+      <!-- ========== 阶段2: 反应式巡逻循环 ========== -->
+      <KeepRunningUntilFailure>
+        <ReactiveFallback>
+
+          <!-- 路径A: 持续读取裁判系统数据，失败则触发应急 -->
+          <Inverter>
+            <WriteToBlackboard Hp="{hp}"
+                               Zone_status="{zone_status}"
+                               Is_defence="{is_defence}"
+                               Is_attack="{is_attack}"
+                               Self_status="{self_status}"
+                               Is_recover="{is_recover}"/>
+          </Inverter>
+
+          <!-- 路径B: HP低 → 回基地 -->
+          <Sequence>
+            <Condition ID="IsHpOk" hp="{hp}" threshold="200"/>
+            <ReactiveSequence>
+              <PubNav2Goal goal_pose="{home_position}"
+                           frame_id="map"
+                           min_pub_interval_ms="500"/>
+              <WaitDuration duration_sec="3.0"/>
+            </ReactiveSequence>
+          </Sequence>
+
+          <!-- 路径C: 使用巡逻工具集逐点巡逻 -->
+          <Sequence>
+            <LoadWaypoints waypoint_file="/home/lu/3V3/config/waypoints/patrol.csv"
+                           frame_id="map"
+                           waypoints="{waypoints}"
+                           wait_times="{wait_times}"
+                           total_waypoints="{total_wp}"/>
+            <KeepRunningUntilFailure>
+              <Sequence>
+                <GetCurrentWaypoint waypoints="{waypoints}"
+                                    wait_times="{wait_times}"
+                                    wp_idx="{wp_idx}"
+                                    current_goal="{current_goal}"
+                                    current_wait_sec="{current_wait}"/>
+                <ReactiveSequence>
+                  <PubNav2Goal goal_pose="{current_goal}"
+                               frame_id="map"
+                               min_pub_interval_ms="500"/>
+                  <WaitUntilReached goal_pose="{current_goal}"
+                                    tolerance="0.5"/>
+                </ReactiveSequence>
+                <WaitDuration duration_sec="{current_wait}"/>
+                <NextWaypoint wp_idx="{wp_idx}"
+                              total_waypoints="{total_wp}"/>
+              </Sequence>
+            </KeepRunningUntilFailure>
+          </Sequence>
+
+          <!-- 路径D: 兜底 → 继续穿越导航巡逻 -->
+          <NavigateThroughPoses waypoint_file="/home/lu/3V3/config/waypoints/patrol.csv"
+                                 frame_id="map"
+                                 current_waypoint="{wp_idx}"/>
+
+        </ReactiveFallback>
+      </KeepRunningUntilFailure>
+
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+
+    <Action ID="NavigateThroughPoses">
+      <input_port name="waypoint_file" default="/home/lu/3V3/config/waypoints/patrol.csv"/>
+      <input_port name="frame_id" default="map"/>
+      <output_port name="current_waypoint" default="{wp_idx}"/>
+    </Action>
+
+    <Action ID="PubNav2Goal">
+      <input_port name="goal_pose"/>
+      <input_port name="frame_id" default="map"/>
+      <input_port name="min_pub_interval_ms"/>
+    </Action>
+
+    <Action ID="SendNav2Goal">
+      <input_port name="goal_pose"/>
+    </Action>
+
+    <Action ID="FollowWaypoints">
+      <input_port name="waypoint_file"/>
+      <input_port name="frame_id" default="map"/>
+      <output_port name="current_waypoint" default="{wp_idx}"/>
+    </Action>
+
+    <Action ID="WriteToBlackboard">
+      <output_port name="Hp" default="{hp}"/>
+      <output_port name="Zone_status" default="{zone_status}"/>
+      <output_port name="Is_defence" default="{is_defence}"/>
+      <output_port name="Is_attack" default="{is_attack}"/>
+      <output_port name="Self_status" default="{self_status}"/>
+      <output_port name="Is_recover" default="{is_recover}"/>
+    </Action>
+
+    <Action ID="LoadWaypoints">
+      <input_port name="waypoint_file"/>
+      <input_port name="frame_id" default="map"/>
+      <output_port name="waypoints" default="{waypoints}"/>
+      <output_port name="wait_times" default="{wait_times}"/>
+      <output_port name="total_waypoints" default="{total_wp}"/>
+    </Action>
+
+    <Action ID="GetCurrentWaypoint">
+      <input_port name="waypoints" default="{waypoints}"/>
+      <input_port name="wait_times" default="{wait_times}"/>
+      <input_port name="wp_idx" default="{wp_idx}"/>
+      <output_port name="current_goal" default="{current_goal}"/>
+      <output_port name="current_wait_sec" default="{current_wait}"/>
+    </Action>
+
+    <Action ID="WaitUntilReached">
+      <input_port name="goal_pose"/>
+      <input_port name="tolerance" default="0.5"/>
+    </Action>
+
+    <Action ID="WaitDuration">
+      <input_port name="duration_sec" default="5.0"/>
+    </Action>
+
+    <Action ID="NextWaypoint">
+      <inout_port name="wp_idx" default="{wp_idx}"/>
+      <input_port name="total_waypoints" default="{total_wp}"/>
+    </Action>
+
+  </TreeNodesModel>
+
+</root>

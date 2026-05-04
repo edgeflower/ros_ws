@@ -2,17 +2,76 @@
 <root BTCPP_format="4"
       main_tree_to_execute="BehaviorTree">
   <BehaviorTree ID="BehaviorTree">
-    <RobotControl stop_gimbal_scan="True"
-                  chassis_spin_vel="8.0"
-                  gimbal_big_yaw_vel="0.0"
-                  gimbal_big_yaw_angle="0.0"
-                  follow_gimbal_big="0.0"
-                  chassis_vel_multi="3.0"
-                  stop_chassis_vel_multi="True"/>
+    <Sequence>
+      <NavigateThroughPoses waypoint_file="/home/lu/3V3/config/waypoints/patrol.csv"
+                            frame_id="map"
+                            current_waypoint="{wp_idx}"/>
+      <GetCurrentWaypoint waypoints="{waypoints}"
+                          wait_times="{wait_times}"
+                          wp_idx="{wp_idx}"
+                          current_goal="{current_goal}"
+                          current_wait_sec="{current_wait}"/>
+      <LoadWaypoints waypoint_file="/home/lu/3V3/config/waypoints/patrol.csv"
+                     frame_id="map"
+                     waypoints="{waypoints}"
+                     wait_times="{wait_times}"
+                     total_waypoints="{total_wp}"
+                     wp_idx="{wp_idx}"/>
+      <PubNav2Goal goal_pose="{current_goal}"
+                   frame_id="map"
+                   min_pub_interval_ms="100"/>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.8"
+                    gimbal_big_yaw_vel="0.0"
+                    gimbal_big_yaw_angle="0.0"
+                    follow_gimbal_big="false"
+                    chassis_vel_multi="3.0"
+                    stop_chassis_vel_multi="True"
+                    track_status="false"/>
+    </Sequence>
   </BehaviorTree>
 
   <!-- Description of Node Models (used by Groot) -->
   <TreeNodesModel>
+    <Action ID="GetCurrentWaypoint">
+      <input_port name="waypoints"
+                  default="{waypoints}"/>
+      <input_port name="wait_times"
+                  default="{wait_times}"/>
+      <input_port name="wp_idx"
+                  default="{wp_idx}"/>
+      <output_port name="current_goal"
+                   default="{current_goal}"/>
+      <output_port name="current_wait_sec"
+                   default="{current_wait}"/>
+    </Action>
+    <Action ID="LoadWaypoints">
+      <input_port name="waypoint_file"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <output_port name="waypoints"
+                   default="{waypoints}"/>
+      <output_port name="wait_times"
+                   default="{wait_times}"/>
+      <output_port name="total_waypoints"
+                   default="{total_wp}"/>
+      <output_port name="wp_idx"
+                   default="{wp_idx}"/>
+    </Action>
+    <Action ID="NavigateThroughPoses">
+      <input_port name="waypoint_file"
+                  default="/home/lu/3V3/config/waypoints/patrol.csv"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <output_port name="current_waypoint"
+                   default="{wp_idx}"/>
+    </Action>
+    <Action ID="PubNav2Goal">
+      <input_port name="goal_pose"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <input_port name="min_pub_interval_ms"/>
+    </Action>
     <Action ID="RobotControl">
       <input_port name="stop_gimbal_scan"
                   default="True"/>
@@ -23,11 +82,13 @@
       <input_port name="gimbal_big_yaw_angle"
                   default="0.785"/>
       <input_port name="follow_gimbal_big"
-                  default="0.0"/>
+                  default="true"/>
       <input_port name="chassis_vel_multi"
                   default="1.0"/>
       <input_port name="stop_chassis_vel_multi"
                   default="True"/>
+      <input_port name="track_status"
+                  default="false"/>
     </Action>
   </TreeNodesModel>
 

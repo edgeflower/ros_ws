@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="MultiNav_FollowWaypoints">
+  <BehaviorTree ID="MultiNav_FollowWaypoints">
+    <Sequence>
+      <NavigateThroughPoses waypoint_file="/home/lu/ros_ws/test.csv"
+                            frame_id="map"
+                            current_waypoint="{wp_idx}"/>
+      <FollowWaypoints waypoint_file="/home/lu/ros_ws/test.csv"
+                       frame_id="map"
+                       current_waypoint="{wp_idx}"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="FollowWaypoints">
+      <input_port name="waypoint_file"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <output_port name="current_waypoint"/>
+    </Action>
+    <Action ID="NavigateThroughPoses">
+      <input_port name="waypoint_file"
+                  default="/home/lu/3V3/config/waypoints/patrol.csv"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <output_port name="current_waypoint"
+                   default="{wp_idx}"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

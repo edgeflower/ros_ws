@@ -173,7 +173,8 @@ def generate_launch_description():
         output="screen",
         parameters=[{
             "input_topic": "odin1/cloud_slam",
-            "output_topic": "cloud_registered"
+            "output_topic": "cloud_registered",
+            # "min_range": 0.55
         }],
     )
     start_cloud_filter_cmd = Node(
@@ -181,6 +182,7 @@ def generate_launch_description():
         executable="lidar_filter_node",
         name="cpp_lidar_filter",
         output="screen",
+        parameters=[configured_params],
     )
 
 
@@ -287,13 +289,13 @@ def generate_launch_description():
     # Add the actions to launch all of the navigation nodes
     ld.add_action(start_robot_state_publisher_cmd)
     ld.add_action(start_livox_ros_driver2_node)
-    ld.add_action(start_cloud_filter_cmd)
+    # ld.add_action(start_cloud_filter_cmd)
     ld.add_action(start_odin_driver_cmd)
-    ld.add_action(start_cloud_converter_cmd)
+    # ld.add_action(start_cloud_converter_cmd)
     ld.add_action(bringup_cmd)
 
     ld.add_action(rviz_cmd)
-    #ld.add_action(foxglove_bridge)
+    ld.add_action(foxglove_bridge)
     #ld.add_action(bag_recorder)
 
     return ld

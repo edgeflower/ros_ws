@@ -9,21 +9,21 @@
  * 4. （本示例中采用集中管理器统一tick，所以内部定时器已注释掉）
  **********************************************************************/
 
-#include <behaviortree_ros2/ros_node_params.hpp>   // ROS2节点参数封装接口
-#include <rclcpp/rclcpp.hpp>                       // ROS2核心接口
-#include <vector>
-#include "behaviortree_cpp/bt_factory.h"           // 行为树工厂，用于创建和管理行为树
+#include "behaviortree_cpp/bt_factory.h" // 行为树工厂，用于创建和管理行为树
 #include "behaviortree_cpp/loggers/groot2_publisher.h" // Groot2调试发布器
-#include "rm_behavior_tree/bt_conversions.hpp"     // 行为树类型转换（PoseStamped 等）
 #include "behaviortree_cpp/utils/shared_library.h" // 共享库操作接口
-#include "behaviortree_ros2/plugins.hpp"           // ROS2插件注册接口
+#include "behaviortree_ros2/plugins.hpp" // ROS2插件注册接口
+#include "rm_behavior_tree/bt_conversions.hpp" // 行为树类型转换（PoseStamped 等）
+#include <behaviortree_ros2/ros_node_params.hpp> // ROS2节点参数封装接口
+#include <rclcpp/rclcpp.hpp> // ROS2核心接口
+#include <vector>
 
 namespace rm_behavior_tree {
 
-class BehaviorTreeNode : public rclcpp::Node
-{
+class BehaviorTreeNode : public rclcpp::Node {
 public:
-    BehaviorTreeNode() : rclcpp::Node("rm_behavior_tree")
+    BehaviorTreeNode()
+        : rclcpp::Node("rm_behavior_tree")
     {
         declare_parameter<std::string>("style", "./3V3/rm_behavior_tree/rm_behavior_tree.xml");
 
@@ -123,6 +123,10 @@ private:
         params_calulate_angle.nh = getSharedPtr();
         params_calulate_angle.default_port_value = "/goal_pose"; // 主要输入，另外还会订阅 /robot_location
 
+        //
+        BT::RosNodeParams params_clear_costmap;
+        params_clear_costmap.nh = getSharedPtr();
+        params_clear_costmap.default_port_value = "which"; // 输入 local global around 来选择清除哪个代价地图
 
         const std::vector<std::string> msg_update_plugins_libs = {
             "sub_all_robot_hp",
@@ -132,6 +136,7 @@ private:
             "sub_decision_num",
             "sub_all_robot_location",
             "sub_robot_posture",
+            "sub_all_enemy_location",
         };
 
         const std::vector<std::string> bt_plugins_libs = {
@@ -162,12 +167,12 @@ private:
         };
 
         // 注册消息更新插件
-        for (const auto & plugin : msg_update_plugins_libs) {
+        for (const auto& plugin : msg_update_plugins_libs) {
             RegisterRosNode(*factory, BT::SharedLibrary::getOSName(plugin), params_update_msg);
         }
 
         // 注册行为树功能插件
-        for (const auto & plugin : bt_plugins_libs) {
+        for (const auto& plugin : bt_plugins_libs) {
             factory->registerFromPlugin(BT::SharedLibrary::getOSName(plugin));
         }
 
@@ -185,13 +190,46 @@ private:
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("get_location"), params_get_location);
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("cancel_navigation"), params_cancel_navigation);
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("calculate_angle"), params_calulate_angle);
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("clear_costmap"), params_clear_costmap);
+
+        // 导航插件：需要独立的 RosNodeParams，各自连接不同的 action server
+        BT::RosNodeParams params_nav;
+        params_nav.nh = std::make_shared<rclcpp::Node>("nav_action");
+        params_nav.server_timeout = std::chrono::milliseconds(5000);
+        params_nav.wait_for_server_timeout = std::chrono::milliseconds(10000);
+
+        // PubNav2Goal：话题发布目标点（不需要 action server）
+        params_nav.default_port_value = "/goal_pose";
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("pub_nav2_goal"), params_nav);
+
+        // SendNav2Goal：Nav2 单点导航 action
+        params_nav.default_port_value = "/navigate_to_pose";
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("send_nav2_goal"), params_nav);
+
+        // FollowWaypoints：Nav2 多点逐站到达 action
+        params_nav.default_port_value = "/follow_waypoints";
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("follow_waypoints"), params_nav);
+
+        // NavigateThroughPoses：Nav2 穿越导航 action
+        params_nav.default_port_value = "/navigate_through_poses";
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("navigate_through_poses"), params_nav);
+
+        // Patrol 巡逻工具节点（纯 BT 节点，不需要 RosNodeParams）
+        factory->registerFromPlugin(BT::SharedLibrary::getOSName("patrol_utils"));
+        
+        // ChaseGoal：追击动态目标（共享 nav action server 节点）
+    	params_nav.default_port_value = "/navigate_to_pose";
+    	RegisterRosNode(*factory, BT::SharedLibrary::getOSName("chase_goal"), params_nav);
+
+        // GetEnemyLocationInMap (裁判系坐标 → map 坐标变换)
+        factory->registerFromPlugin(BT::SharedLibrary::getOSName("get_enemy_location_in_map"));
     }
 
     // 成员变量
-    std::string bt_xml_path;                                    // 行为树XML文件路径
-    std::shared_ptr<BT::BehaviorTreeFactory> factory;           // 行为树工厂
-    std::shared_ptr<BT::Groot2Publisher> publisher;             // Groot2调试发布器
-    std::shared_ptr<BT::Tree> tree_ptr;                         // 行为树对象指针
+    std::string bt_xml_path; // 行为树XML文件路径
+    std::shared_ptr<BT::BehaviorTreeFactory> factory; // 行为树工厂
+    std::shared_ptr<BT::Groot2Publisher> publisher; // Groot2调试发布器
+    std::shared_ptr<BT::Tree> tree_ptr; // 行为树对象指针
 };
 
 } // namespace rm_behavior_tree

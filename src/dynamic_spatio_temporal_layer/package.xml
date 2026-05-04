@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>dynamic_spatio_temporal_layer</name>
+  <version>0.1.0</version>
+  <description>Nav2 costmap layer extending STVL with odom-locked Z filtering,
+    distance-based segmentation, and dual-buffer decay.</description>
+  <maintainer email="todo@todo.com">lu</maintainer>
+  <license>BSD-3-Clause</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav2_util</depend>
+  <depend>spatio_temporal_voxel_layer</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>pluginlib</depend>
+  <depend>eigen</depend>
+
+  <export>
+    <nav2_costmap_2d plugin="${prefix}/costmap_plugins.xml"/>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

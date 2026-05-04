@@ -298,7 +298,7 @@ armor_interfaces::msg::Target EnemyPositionFilter::createDefaultTarget()
 
     // 设置为当前位置（地图原点）
     default_target.header.stamp = rclcpp::Clock().now();
-    default_target.header.frame_id = "map";
+    default_target.header.frame_id = "gimbal_yaw";
 
     default_target.position.x = 0.0;
     default_target.position.y = 0.0;

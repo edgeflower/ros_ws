@@ -13,5 +13,5 @@ float64 standard_3_y
 float64 standard_4_x
 float64 standard_4_y
 
-float64 standard_5_x
-float64 standard_5_y
+float64 sentry_x
+float64 sentry_y

@@ -15,6 +15,9 @@
 
 #include "pb_nav2_plugins/behaviors/back_up_free_space.hpp"
 
+#include <algorithm>
+#include <limits>
+
 namespace pb_nav2_behaviors
 {
 
@@ -36,6 +39,17 @@ void BackUpFreeSpace::onConfigure()
   node->get_parameter("max_radius", max_radius_);
   node->get_parameter("service_name", service_name_);
   node->get_parameter("visualize", visualize_);
+
+  nav2_util::declare_parameter_if_not_declared(
+    node, "inscribed_radius", rclcpp::ParameterValue(0.3));
+  nav2_util::declare_parameter_if_not_declared(
+    node, "min_escape_distance", rclcpp::ParameterValue(0.5));
+  nav2_util::declare_parameter_if_not_declared(
+    node, "obstacle_cost_threshold", rclcpp::ParameterValue(253));
+
+  node->get_parameter("inscribed_radius", inscribed_radius_);
+  node->get_parameter("min_escape_distance", min_escape_distance_);
+  node->get_parameter("obstacle_cost_threshold", obstacle_cost_threshold_);
 
   costmap_client_ = node->create_client<nav2_msgs::srv::GetCostmap>(service_name_);
 
@@ -73,6 +87,7 @@ nav2_behaviors::Status BackUpFreeSpace::onRun(
 
   // get costmap
   auto costmap = result.get()->map;
+  cached_costmap_ = costmap;
 
   if (!nav2_util::getCurrentPose(
         initial_pose_, *tf_, global_frame_, robot_base_frame_, transform_tolerance_)) {
@@ -86,13 +101,52 @@ nav2_behaviors::Status BackUpFreeSpace::onRun(
   pose.y = initial_pose_.pose.position.y;
   pose.theta = tf2::getYaw(initial_pose_.pose.orientation);
 
+  // Detect if robot or its footprint is in a danger zone
+  starting_in_danger_ = !isPositionFree(pose.x, pose.y);
+
   // Find the best direction to back up
-  float best_angle = findBestDirection(costmap, pose, -M_PI, M_PI, max_radius_, M_PI / 32.0);
+  auto dir_result = findBestDirection(costmap, pose, -M_PI, M_PI, max_radius_, M_PI / 32.0);
+
+  if (!dir_result.found) {
+    RCLCPP_WARN(logger_, "No valid escape direction found");
+    return nav2_behaviors::Status::FAILED;
+  }
+
+  // Store speed for potential re-search
+  command_speed_ = command->speed;
+  penetration_distance_ = dir_result.penetration_distance;
+  re_search_count_ = 0;
+  global_start_time_ = clock_->now();
+  last_failed_angle_ = std::numeric_limits<float>::max();
+
+  // Desperate mode: small nudge in the least-bad direction
+  if (dir_result.desperate) {
+    command_x_ = 0.15f;
+    starting_in_danger_ = true;
+    twist_x_ = std::cos(dir_result.best_angle) * command_speed_;
+    twist_y_ = std::sin(dir_result.best_angle) * command_speed_;
+    command_time_allowance_ = command->time_allowance;
+    end_time_ = clock_->now() + command_time_allowance_;
+
+    if (!nav2_util::getCurrentPose(
+          initial_pose_, *tf_, global_frame_, robot_base_frame_, transform_tolerance_)) {
+      RCLCPP_ERROR(logger_, "Initial robot pose is not available.");
+      return nav2_behaviors::Status::FAILED;
+    }
+    RCLCPP_WARN(logger_, "Desperate nudge 0.15m at angle %.2f", dir_result.best_angle);
+    return nav2_behaviors::Status::SUCCEEDED;
+  }
+
+  // Compute actual escape distance: at least min_escape, at most clear_distance
+  const float cmd_dist = static_cast<float>(std::fabs(command->target.x));
+  const float min_needed = dir_result.penetration_distance + static_cast<float>(min_escape_distance_);
+  const float max_safe = dir_result.penetration_distance + dir_result.clear_distance;
+  const float actual_distance = std::min(std::max(cmd_dist, min_needed), max_safe);
 
   // Calculate move command
-  twist_x_ = std::cos(best_angle) * command->speed;
-  twist_y_ = std::sin(best_angle) * command->speed;
-  command_x_ = command->target.x;
+  twist_x_ = std::cos(dir_result.best_angle) * command_speed_;
+  twist_y_ = std::sin(dir_result.best_angle) * command_speed_;
+  command_x_ = actual_distance;
   command_time_allowance_ = command->time_allowance;
 
   end_time_ = clock_->now() + command_time_allowance_;
@@ -103,13 +157,21 @@ nav2_behaviors::Status BackUpFreeSpace::onRun(
     return nav2_behaviors::Status::FAILED;
   }
   RCLCPP_WARN(
-    logger_, "backing up %f meters towards free space at angle %f", command_x_, best_angle);
+    logger_, "backing up %f meters towards free space at angle %f (clear: %f)",
+    command_x_, dir_result.best_angle, dir_result.clear_distance);
 
   return nav2_behaviors::Status::SUCCEEDED;
 }
 
 nav2_behaviors::Status BackUpFreeSpace::onCycleUpdate()
 {
+  // Global timeout: prevents infinite re-search loops
+  if ((clock_->now() - global_start_time_).seconds() > GLOBAL_TIMEOUT) {
+    stopRobot();
+    RCLCPP_WARN(logger_, "Global timeout (%.0fs) exceeded", GLOBAL_TIMEOUT);
+    return nav2_behaviors::Status::FAILED;
+  }
+
   rclcpp::Duration time_remaining = end_time_ - clock_->now();
   if (time_remaining.seconds() < 0.0 && command_time_allowance_.seconds() > 0.0) {
     stopRobot();
@@ -148,10 +210,88 @@ nav2_behaviors::Status BackUpFreeSpace::onCycleUpdate()
   pose.y = current_pose.pose.position.y;
   pose.theta = tf2::getYaw(current_pose.pose.orientation);
 
-  if (!isCollisionFree(distance, cmd_vel.get(), pose)) {
+  // Early termination: if robot AND its footprint are now in free space, stop
+  if (distance > 0.10f && isPositionFree(pose.x, pose.y)) {
     stopRobot();
-    RCLCPP_WARN(logger_, "Collision Ahead - Exiting DriveOnHeading");
-    return nav2_behaviors::Status::FAILED;
+    RCLCPP_WARN(logger_, "Escaped to free space after %.2f meters", distance);
+    return nav2_behaviors::Status::SUCCEEDED;
+  }
+
+  // Stuck detection: velocity commands sent but robot hasn't moved
+  const double elapsed = command_time_allowance_.seconds() - time_remaining.seconds();
+  const bool physically_stuck = (elapsed > 1.0) && (distance < 0.02f);
+
+  // Dynamic danger check: use current position, not initial state
+  const bool currently_in_danger = !isPositionFree(pose.x, pose.y);
+
+  // Determine if re-search is needed
+  bool need_research = physically_stuck;
+
+  if (!physically_stuck) {
+    if (currently_in_danger) {
+      // Relaxed check during escape: only block on truly lethal ahead
+      const float dir_x = static_cast<float>(twist_x_ / command_speed_);
+      const float dir_y = static_cast<float>(twist_y_ / command_speed_);
+      const float ahead_x = pose.x + static_cast<float>(inscribed_radius_) * dir_x;
+      const float ahead_y = pose.y + static_cast<float>(inscribed_radius_) * dir_y;
+      need_research = costAtPosition(ahead_x, ahead_y) >= 254;
+    } else {
+      need_research = !isCollisionFree(distance, cmd_vel.get(), pose);
+    }
+  }
+
+  if (need_research) {
+    stopRobot();
+
+    // Record failed direction before re-searching
+    last_failed_angle_ = std::atan2(static_cast<float>(twist_y_), static_cast<float>(twist_x_));
+
+    if (++re_search_count_ > 5) {
+      RCLCPP_ERROR(logger_, "Re-search limit reached (%d), giving up", re_search_count_);
+      return nav2_behaviors::Status::FAILED;
+    }
+
+    RCLCPP_WARN(logger_, "%s - re-search #%d",
+      physically_stuck ? "Physically stuck" : "Collision ahead", re_search_count_);
+
+    auto req = std::make_shared<nav2_msgs::srv::GetCostmap::Request>();
+    auto res = costmap_client_->async_send_request(req);
+    if (res.wait_for(std::chrono::milliseconds(500)) == std::future_status::timeout) {
+      RCLCPP_ERROR(logger_, "Re-search: costmap service timeout");
+      return nav2_behaviors::Status::FAILED;
+    }
+
+    geometry_msgs::msg::Pose2D re_pose;
+    re_pose.x = current_pose.pose.position.x;
+    re_pose.y = current_pose.pose.position.y;
+    re_pose.theta = tf2::getYaw(current_pose.pose.orientation);
+
+    auto re_result =
+      findBestDirection(res.get()->map, re_pose, -M_PI, M_PI, max_radius_, M_PI / 32.0, last_failed_angle_);
+
+    if (!re_result.found) {
+      RCLCPP_WARN(logger_, "Re-search: no valid direction found");
+      return nav2_behaviors::Status::FAILED;
+    }
+
+    const float remaining = std::fabs(command_x_) - distance;
+    const float re_min_needed =
+      re_result.penetration_distance + static_cast<float>(min_escape_distance_);
+    const float re_max_safe =
+      re_result.penetration_distance + re_result.clear_distance;
+    const float new_target = std::min(std::max(remaining, re_min_needed), re_max_safe);
+
+    twist_x_ = std::cos(re_result.best_angle) * command_speed_;
+    twist_y_ = std::sin(re_result.best_angle) * command_speed_;
+    command_x_ = new_target;
+    penetration_distance_ = re_result.penetration_distance;
+    initial_pose_ = current_pose;
+    end_time_ = clock_->now() + command_time_allowance_;
+
+    RCLCPP_WARN(
+      logger_, "Re-search #%d: angle %.2f, dist %.2f, penetrate %.2f",
+      re_search_count_, re_result.best_angle, new_target, re_result.penetration_distance);
+    return nav2_behaviors::Status::RUNNING;
   }
 
   vel_pub_->publish(std::move(cmd_vel));
@@ -159,78 +299,249 @@ nav2_behaviors::Status BackUpFreeSpace::onCycleUpdate()
   return nav2_behaviors::Status::RUNNING;
 }
 
-float BackUpFreeSpace::findBestDirection(
-  const nav2_msgs::msg::Costmap & costmap, geometry_msgs::msg::Pose2D pose, float start_angle,
-  float end_angle, float radius, float angle_increment)
+unsigned char BackUpFreeSpace::costAtPosition(float x, float y) const
 {
-  float best_angle = start_angle;
+  const float resolution = cached_costmap_.metadata.resolution;
+  const float origin_x = cached_costmap_.metadata.origin.position.x;
+  const float origin_y = cached_costmap_.metadata.origin.position.y;
+  const int size_x = cached_costmap_.metadata.size_x;
+  const int size_y = cached_costmap_.metadata.size_y;
 
-  float first_safe_angle = -1.0f;
-  float last_unsafe_angle = -1.0f;
+  int i = static_cast<int>((x - origin_x) / resolution);
+  int j = static_cast<int>((y - origin_y) / resolution);
 
-  float final_safe_angle = 0.0f;
-  float final_unsafe_angle = 0.0f;
+  if (i < 0 || i >= size_x || j < 0 || j >= size_y) return 255;
+  return cached_costmap_.data[i + j * size_x];
+}
 
-  float resolution = costmap.metadata.resolution;
-  float origin_x = costmap.metadata.origin.position.x;
-  float origin_y = costmap.metadata.origin.position.y;
-  int size_x = costmap.metadata.size_x;
-  int size_y = costmap.metadata.size_y;
+bool BackUpFreeSpace::isPositionFree(float x, float y) const
+{
+  if (costAtPosition(x, y) >= obstacle_cost_threshold_) return false;
+  // Check footprint circle at inscribed_radius (16 sample points)
+  for (float a = 0; a < 2.0f * static_cast<float>(M_PI); a += static_cast<float>(M_PI) / 8.0f) {
+    float cx = x + static_cast<float>(inscribed_radius_) * std::cos(a);
+    float cy = y + static_cast<float>(inscribed_radius_) * std::sin(a);
+    if (costAtPosition(cx, cy) >= obstacle_cost_threshold_) return false;
+  }
+  return true;
+}
 
-  float map_min_x = origin_x;
-  float map_max_x = origin_x + (size_x * resolution);
-  float map_min_y = origin_y;
-  float map_max_y = origin_y + (size_y * resolution);
+DirectionResult BackUpFreeSpace::findBestDirection(
+  const nav2_msgs::msg::Costmap & costmap, geometry_msgs::msg::Pose2D pose, float start_angle,
+  float end_angle, float radius, float angle_increment, float excluded_angle)
+{
+  DirectionResult result;
 
-  for (float angle = start_angle; angle <= end_angle; angle += angle_increment) {
+  const float resolution = costmap.metadata.resolution;
+  const float origin_x = costmap.metadata.origin.position.x;
+  const float origin_y = costmap.metadata.origin.position.y;
+  const int size_x = costmap.metadata.size_x;
+  const int size_y = costmap.metadata.size_y;
+  const float map_max_x = origin_x + size_x * resolution;
+  const float map_max_y = origin_y + size_y * resolution;
+
+  // Phase 1: Collect per-angle safety and max safe ray length
+  struct AngleInfo
+  {
+    float angle;
+    bool safe;
+    float max_safe_r;
+  };
+  std::vector<AngleInfo> infos;
+
+  for (float angle = start_angle; angle <= end_angle + 1e-6f; angle += angle_increment) {
     bool is_safe = true;
+    float max_r = static_cast<float>(inscribed_radius_);
 
-    for (float r = 0; r <= radius; r += resolution) {
+    for (float r = static_cast<float>(inscribed_radius_); r <= radius; r += resolution) {
       float x = pose.x + r * std::cos(angle);
       float y = pose.y + r * std::sin(angle);
 
-      if (x >= map_min_x && x <= map_max_x && y >= map_min_y && y <= map_max_y) {
-        int i = static_cast<int>((x - origin_x) / resolution);
-        int j = static_cast<int>((y - origin_y) / resolution);
-
-        if (i >= 0 && i < size_x && j >= 0 && j < size_y) {
-          if (costmap.data[i + j * size_x] >= 253) {
-            is_safe = false;
-            break;
-          }
-        } else {
-          is_safe = false;
-          break;
-        }
-      } else {
+      if (x < origin_x || x >= map_max_x || y < origin_y || y >= map_max_y) {
         is_safe = false;
         break;
       }
-    }
-    if (is_safe && first_safe_angle == -1.0f) {
-      first_safe_angle = angle;
+
+      int i = static_cast<int>((x - origin_x) / resolution);
+      int j = static_cast<int>((y - origin_y) / resolution);
+
+      if (i < 0 || i >= size_x || j < 0 || j >= size_y ||
+          costmap.data[i + j * size_x] >= obstacle_cost_threshold_) {
+        is_safe = false;
+        break;
+      }
+      max_r = r;
     }
 
-    if (!is_safe && first_safe_angle != -1.0f && last_unsafe_angle == -1.0f) {
-      last_unsafe_angle = angle;
-    }
+    infos.push_back({angle, is_safe, max_r});
+  }
 
-    if (
-      last_unsafe_angle - first_safe_angle > final_unsafe_angle - final_safe_angle &&
-      first_safe_angle != -1.0f && last_unsafe_angle != -1.0f) {
-      final_safe_angle = first_safe_angle;
-      final_unsafe_angle = last_unsafe_angle;
-      first_safe_angle = -1.0f;
-      last_unsafe_angle = -1.0f;
+  const int N = static_cast<int>(infos.size());
+  if (N == 0) return result;
+
+  // Phase 2: Find longest safe sector using circular scan (handles ±π wrap)
+  int best_len = 0, best_start = 0;
+  int cur_len = 0, cur_start = 0;
+
+  for (int i = 0; i < 2 * N; i++) {
+    if (infos[i % N].safe) {
+      if (cur_len == 0) cur_start = i;
+      cur_len++;
+    } else {
+      if (cur_len > best_len) {
+        best_len = cur_len;
+        best_start = cur_start;
+      }
+      cur_len = 0;
     }
   }
-  best_angle = (final_safe_angle + final_unsafe_angle) / 2.0f;
+  if (cur_len > best_len) {
+    best_len = cur_len;
+    best_start = cur_start;
+  }
+  if (best_len > N) best_len = N;
+
+  if (best_len == 0) {
+    // Fallback: penetration search - find directions that lead to free space
+    // through high-cost zones (inflation, noise, stale data)
+    RCLCPP_WARN(logger_, "No fully safe sector - attempting penetration search");
+
+    float best_score = -1.0f;
+
+    for (int i = 0; i < N; i++) {
+      const float angle = infos[i].angle;
+      float first_free_r = -1.0f;
+      float free_end_r = -1.0f;
+      bool in_free = false;
+
+      for (float r = 0; r <= radius; r += resolution) {
+        float x = pose.x + r * std::cos(angle);
+        float y = pose.y + r * std::sin(angle);
+
+        if (x < origin_x || x >= map_max_x || y < origin_y || y >= map_max_y) {
+          if (in_free) break;
+          continue;
+        }
+
+        int mi = static_cast<int>((x - origin_x) / resolution);
+        int mj = static_cast<int>((y - origin_y) / resolution);
+
+        if (mi < 0 || mi >= size_x || mj < 0 || mj >= size_y) {
+          if (in_free) break;
+          continue;
+        }
+
+        if (costmap.data[mi + mj * size_x] < obstacle_cost_threshold_) {
+          if (first_free_r < 0) first_free_r = r;
+          in_free = true;
+          free_end_r = r;
+        } else if (in_free) {
+          break;
+        }
+      }
+
+      if (first_free_r < 0) continue;
+
+      const float free_depth = free_end_r - first_free_r + resolution;
+      if (free_depth < static_cast<float>(min_escape_distance_)) continue;
+
+      // Score: prefer short penetration + long free depth, penalize failed directions
+      float score = free_depth / (first_free_r + resolution);
+      if (excluded_angle < std::numeric_limits<float>::max()) {
+        float angle_diff = std::fabs(std::atan2(std::sin(angle - excluded_angle),
+                                                 std::cos(angle - excluded_angle)));
+        if (angle_diff < 0.52f) score *= 0.1f;  // ±30° penalty
+      }
+      if (score > best_score) {
+        best_score = score;
+        result.found = true;
+        result.best_angle = angle;
+        result.clear_distance = free_depth;
+        result.penetration_distance = first_free_r;
+      }
+    }
+
+    if (result.found) {
+      RCLCPP_WARN(
+        logger_, "Penetration search: angle %.2f, penetrate %.2f, clear %.2f",
+        result.best_angle, result.penetration_distance, result.clear_distance);
+      if (visualize_) {
+        visualize(pose, radius, result.best_angle, result.best_angle);
+      }
+      return result;
+    }
+
+    // Final fallback: no free space at all. Find direction with lowest average cost.
+    RCLCPP_WARN(logger_, "No free corridor - attempting lowest-cost direction");
+    float best_avg_cost = std::numeric_limits<float>::max();
+
+    for (int i = 0; i < N; i++) {
+      const float angle = infos[i].angle;
+      float total_cost = 0.0f;
+      int count = 0;
+
+      for (float r = 0; r <= radius; r += resolution) {
+        float x = pose.x + r * std::cos(angle);
+        float y = pose.y + r * std::sin(angle);
+
+        if (x < origin_x || x >= map_max_x || y < origin_y || y >= map_max_y) continue;
+
+        int mi = static_cast<int>((x - origin_x) / resolution);
+        int mj = static_cast<int>((y - origin_y) / resolution);
+
+        if (mi < 0 || mi >= size_x || mj < 0 || mj >= size_y) continue;
+
+        total_cost += costmap.data[mi + mj * size_x];
+        count++;
+      }
+
+      if (count > 0) {
+        float avg_cost = total_cost / static_cast<float>(count);
+        // Penalize failed directions
+        if (excluded_angle < std::numeric_limits<float>::max()) {
+          float angle_diff = std::fabs(std::atan2(std::sin(angle - excluded_angle),
+                                                   std::cos(angle - excluded_angle)));
+          if (angle_diff < 0.52f) avg_cost += 50.0f;  // ±30° penalty
+        }
+        if (avg_cost < best_avg_cost) {
+          best_avg_cost = avg_cost;
+          result.found = true;
+          result.best_angle = angle;
+          result.desperate = true;
+        }
+      }
+    }
+
+    if (result.found) {
+      RCLCPP_WARN(logger_, "Desperate move: angle %.2f, avg_cost %.1f", result.best_angle, best_avg_cost);
+    }
+
+    return result;
+  }
+
+  // Phase 3: Compute center angle and clear distance
+  float sum_cos = 0.0f, sum_sin = 0.0f;
+  float min_clear = std::numeric_limits<float>::max();
+  float vis_start_angle = 0.0f, vis_end_angle = 0.0f;
+
+  for (int k = best_start; k < best_start + best_len; k++) {
+    const auto & info = infos[k % N];
+    sum_cos += std::cos(info.angle);
+    sum_sin += std::sin(info.angle);
+    min_clear = std::min(min_clear, info.max_safe_r);
+    if (k == best_start) vis_start_angle = info.angle;
+    vis_end_angle = info.angle;
+  }
+
+  result.found = true;
+  result.best_angle = std::atan2(sum_sin, sum_cos);
+  result.clear_distance = min_clear;
 
   if (visualize_) {
-    visualize(pose, radius, final_safe_angle, final_unsafe_angle);
+    visualize(pose, radius, vis_start_angle, vis_end_angle);
   }
 
-  return best_angle;
+  return result;
 }
 
 std::vector<geometry_msgs::msg::Point> BackUpFreeSpace::gatherFreePoints(

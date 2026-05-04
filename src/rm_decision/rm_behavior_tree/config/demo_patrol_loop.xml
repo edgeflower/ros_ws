@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="PatrolLoop">
+  <BehaviorTree ID="PatrolLoop">
+    <Sequence>
+      <LoadWaypoints waypoint_file="/home/lu/ros_ws/test.csv"
+                     frame_id="map"
+                     waypoints="{waypoints}"
+                     wait_times="{wait_times}"
+                     total_waypoints="{total_wp}"
+                     wp_idx="{wp_idx}"/>
+      <KeepRunningUntilFailure>
+        <Sequence>
+          <GetCurrentWaypoint waypoints="{waypoints}"
+                              wait_times="{wait_times}"
+                              wp_idx="{wp_idx}"
+                              current_goal="{current_goal}"
+                              current_wait_sec="{current_wait_sec}"/>
+          <ReactiveSequence>
+            <PubNav2Goal goal_pose="{current_goal}"
+                         frame_id="map"
+                         min_pub_interval_ms="500"/>
+            <WaitUntilReached goal_pose="{current_goal}"
+                              tolerance="0.5"/>
+          </ReactiveSequence>
+          <WaitDuration duration_sec="{current_wait_sec}"/>
+          <NextWaypoint wp_idx="{wp_idx}"
+                        total_waypoints="{total_wp}"/>
+        </Sequence>
+      </KeepRunningUntilFailure>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="GetCurrentWaypoint">
+      <input_port name="waypoints"
+                  default="{waypoints}"/>
+      <input_port name="wait_times"
+                  default="{wait_times}"/>
+      <input_port name="wp_idx"
+                  default="{wp_idx}"/>
+      <output_port name="current_goal"
+                   default="{current_goal}"/>
+      <output_port name="current_wait_sec"
+                   default="{current_wait}"/>
+    </Action>
+    <Action ID="LoadWaypoints">
+      <input_port name="waypoint_file"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <output_port name="waypoints"
+                   default="{waypoints}"/>
+      <output_port name="wait_times"
+                   default="{wait_times}"/>
+      <output_port name="total_waypoints"
+                   default="{total_wp}"/>
+      <output_port name="wp_idx"
+                   default="{wp_idx}"/>
+    </Action>
+    <Action ID="NextWaypoint">
+      <inout_port name="wp_idx"/>
+      <input_port name="total_waypoints"/>
+    </Action>
+    <Action ID="PubNav2Goal">
+      <input_port name="goal_pose"/>
+      <input_port name="frame_id"
+                  default="map"/>
+      <input_port name="min_pub_interval_ms"/>
+    </Action>
+    <Action ID="WaitDuration">
+      <input_port name="duration_sec"
+                  default="5.0"/>
+    </Action>
+    <Action ID="WaitUntilReached">
+      <input_port name="goal_pose"/>
+      <input_port name="tolerance"
+                  default="0.5"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

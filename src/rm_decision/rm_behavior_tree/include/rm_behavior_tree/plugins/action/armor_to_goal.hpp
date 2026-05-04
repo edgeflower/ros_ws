@@ -13,15 +13,6 @@
 
 namespace rm_behavior_tree {
 
-/**
- * @brief ArmorToGoalAction - 将敌人位置转换为导航目标点
- *
- * 输入: target_message (已在 map 坐标系的敌人位置)
- * 输出: goal_pose (导航目标点，直接使用敌人位置)
- *
- * 功能: 直接使用敌人位置作为导航目标点，不做偏移计算
- *       置信度检查由 ConfidenceHysteresis 节点统一处理
- */
 class ArmorToGoalAction : public BT::SyncActionNode, public rclcpp::Node
 {
 public:
@@ -31,7 +22,11 @@ public:
     {
         return {
             BT::InputPort<armor_interfaces::msg::Target>("target_message", "Target message with position"),
-            BT::OutputPort<geometry_msgs::msg::PoseStamped>("goal_pose", "Output goal pose (enemy position)")
+            BT::InputPort<geometry_msgs::msg::PoseStamped>("robot_pose", "Current robot pose"),
+            BT::InputPort<double>("offset_distance", 2.0, "Keep this distance from enemy (m)"),
+            BT::InputPort<double>("predict_time", 0.5, "Velocity prediction time (s)"),
+            BT::InputPort<double>("max_chase_distance", 10.0, "Max chase distance, return FAILURE if exceeded (m)"),
+            BT::OutputPort<geometry_msgs::msg::PoseStamped>("goal_pose", "Output goal pose with offset")
         };
     }
 

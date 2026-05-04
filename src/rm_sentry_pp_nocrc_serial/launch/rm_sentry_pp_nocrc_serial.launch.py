@@ -14,6 +14,5 @@ def generate_launch_description():
             name="rm_sentry_pp_nocrc_serial",
             output="screen",
             parameters=[yaml_path],
-        ),
-        
+        )
     ])

@@ -33,6 +33,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/GoalStatus.msg"
   "srv/SetSentryPosture.srv"
   "msg/RFIDParse.msg"
+  "msg/EnemyLocation.msg"
 
   DEPENDENCIES
     std_msgs

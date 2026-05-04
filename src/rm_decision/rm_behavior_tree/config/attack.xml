@@ -25,6 +25,13 @@
                             enable_hold_position="true"
                             current_confidence="{current_confidence}"
                             hysteresis_state="{hysteresis_state}"/>
+      <ForceSuccess>
+        <BagRecorder topics="/livox/lidar,/livox/imu"
+                     output_dir="/home/sentry/Desktop/ros_ws/ros_bag"
+                     bag_prefix="test"
+                     qos_config_path="/home/sentry/Desktop/ros_ws/ros_bag/qos_overrides.yaml"
+                     game_status_current="{game_status}"/>
+      </ForceSuccess>
       <AsyncFallback>
         <IsGameTime message="{game_status}"
                     game_progress="4"
@@ -240,6 +247,18 @@
       <input_port name="backup_speed"/>
       <input_port name="time_allowance"/>
       <input_port name="server_name"/>
+    </Action>
+    <Action ID="BagRecorder"
+            editable="true">
+      <input_port name="topics"
+                  default="/livox/lidar,/livox/imu"/>
+      <input_port name="output_dir"
+                  default="/home/sentry/Desktop/ros_ws/ros_bag"/>
+      <input_port name="bag_prefix"/>
+      <input_port name="qos_config_path"
+                  default="/livox/lidar,/livox/imu"/>
+      <input_port name="game_status_current"
+                  default="{game_status}"/>
     </Action>
     <Condition ID="CheckHysteresisState">
       <input_port name="state"

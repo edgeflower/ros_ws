@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <BehaviorTree ID="NavigationWithStallRecovery">
+    <RetryUntilSuccessful num_attempts="3">
+      <ReactiveFallback name="NavigationRecoveryChain">
+        <Timeout msec="20000">
+          <SendMyGoal my_goal_pose="{target_pose}"
+                      action_name="/navigate_to_pose"
+                      goal_id="{goal_id}"
+                      max_visits="{max_visits}"
+                      stall_threshold="0.2"
+                      stall_check_interval="2.0"
+                      min_distance_for_stall="0.5"/>
+        </Timeout>
+        <Sequence name="RecoveryRoutine">
+          <BackUp backup_dist="0.5"
+                  backup_speed="0.5"
+                  time_allowance="5"/>
+          <Wait duration="0.5"/>
+        </Sequence>
+      </ReactiveFallback>
+    </RetryUntilSuccessful>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="BackUp"
+            editable="true">
+      <input_port name="backup_dist" default="0.3"/>
+      <input_port name="backup_speed" default="0.15"/>
+      <input_port name="time_allowance" default="5.0"/>
+      <input_port name="global_frame" default="odom"/>
+      <input_port name="robot_base_frame" default="base_footprint"/>
+    </Action>
+    <Action ID="SendMyGoal">
+      <input_port name="my_goal_pose" default="{best_goal}"/>
+      <input_port name="action_name" default="/navigate_to_pose"/>
+      <input_port name="goal_id" default="1"/>
+      <input_port name="max_visits" default="1"/>
+      <input_port name="stall_threshold" default="0.2"/>
+      <input_port name="stall_check_interval" default="2.0"/>
+      <input_port name="min_distance_for_stall" default="0.5"/>
+    </Action>
+    <Action ID="Wait"
+            editable="true">
+      <input_port name="duration" default="3"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

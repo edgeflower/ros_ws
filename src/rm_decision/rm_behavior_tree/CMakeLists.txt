@@ -59,6 +59,10 @@ ament_auto_add_library(sub_all_robot_location SHARED
   plugins/action/sub_all_robot_location.cpp)
 add_target_dependencies(sub_all_robot_location)
 
+ament_auto_add_library(sub_all_enemy_location SHARED
+  plugins/action/sub_all_enemy_location.cpp)
+add_target_dependencies(sub_all_enemy_location)
+
 ament_auto_add_library(get_current_location SHARED
   plugins/action/get_current_location.cpp
 )
@@ -73,6 +77,11 @@ ament_auto_add_library(get_robot_location SHARED
   plugins/action/get_robot_location.cpp
 )
 add_target_dependencies(get_robot_location)
+
+ament_auto_add_library(back_up SHARED
+  plugins/action/back_up.cpp
+)
+add_target_dependencies(back_up)
 
 ament_auto_add_library(move_around SHARED
   plugins/action/move_around.cpp
@@ -133,6 +142,16 @@ ament_auto_add_library(armor_to_goal SHARED
   plugins/action/armor_to_goal.cpp)
 add_target_dependencies(armor_to_goal)
 
+# Chase Goal Action Node (dynamic goal tracking)
+ament_auto_add_library(chase_goal SHARED
+  plugins/action/chase_goal.cpp)
+add_target_dependencies(chase_goal)
+
+# Get Enemy Location In Map (referee to map transform)
+ament_auto_add_library(get_enemy_location_in_map SHARED
+  plugins/action/get_enemy_location_in_map.cpp)
+add_target_dependencies(get_enemy_location_in_map)
+
 # Hold Position Action Node
 ament_auto_add_library(hold_position SHARED
   plugins/action/hold_position.cpp)
@@ -177,6 +196,41 @@ add_target_dependencies(cancel_navigation)
 ament_auto_add_library(sub_cmd_vel SHARED
   plugins/action/sub_cmd_vel.cpp)
 add_target_dependencies(sub_cmd_vel)
+
+# Clear Costmap Action Node
+ament_auto_add_library(clear_costmap SHARED
+  plugins/action/clear_costmap.cpp)
+add_target_dependencies(clear_costmap)
+
+# NavigateThroughPoses Action Node
+ament_auto_add_library(navigate_through_poses SHARED
+  plugins/action/navigate_through_poses.cpp)
+add_target_dependencies(navigate_through_poses)
+
+# PubNav2Goal Action Node
+ament_auto_add_library(pub_nav2_goal SHARED
+  plugins/action/pub_nav2_goal.cpp)
+add_target_dependencies(pub_nav2_goal)
+
+# SendNav2Goal Action Node
+ament_auto_add_library(send_nav2_goal SHARED
+  plugins/action/send_nav2_goal.cpp)
+add_target_dependencies(send_nav2_goal)
+
+# FollowWaypoints Action Node
+ament_auto_add_library(follow_waypoints SHARED
+  plugins/action/follow_waypoints.cpp)
+add_target_dependencies(follow_waypoints)
+
+# WriteToBlackboard Action Node (需要 rm_interfaces，暂时禁用)
+# ament_auto_add_library(write_to_blackboard SHARED
+#   plugins/action/write_to_blackboard.cpp)
+# add_target_dependencies(write_to_blackboard)
+
+# Patrol Utils (LoadWaypoints, GetCurrentWaypoint, WaitUntilReached, WaitDuration, NextWaypoint)
+ament_auto_add_library(patrol_utils SHARED
+  plugins/action/patrol_utils.cpp)
+add_target_dependencies(patrol_utils)
 
 # Map Processor Node (independent ROS2 node)
 ament_auto_add_executable(map_processor_node

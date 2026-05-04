@@ -31,6 +31,7 @@
 double scanVoxelSize = 0.05;
 double decayTime = 2.0;
 double nearDecayTime = 10.0;  // 独立的近距离衰减时间
+double minClear = 0.5; // 近处不保存
 double noDecayDis = 4.0;
 double clearingDis = 8.0;
 bool clearingCloud = false;

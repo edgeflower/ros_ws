@@ -1,0 +1,7 @@
+<library path="dynamic_spatio_temporal_layer">
+  <class type="dynamic_spatio_temporal_layer::DynamicSpatioTemporalLayer"
+         base_class_type="nav2_costmap_2d::Layer">
+    <description>Costmap layer extending STVL with odom-locked Z filtering,
+      distance-based segmentation, and dual-buffer decay.</description>
+  </class>
+</library>
