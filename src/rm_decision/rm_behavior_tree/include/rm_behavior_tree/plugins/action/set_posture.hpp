@@ -6,7 +6,12 @@
 
 namespace rm_behavior_tree
 {
-
+enum Posture
+{
+    POSTURE_ATTACK = 1,    // 进攻
+    POSTURE_DEFENSE = 2,   // 防御
+    POSTURE_MOVE = 3,      // 移动
+};
 class SetPosture : public BT::RosServiceNode<rm_decision_interfaces::srv::SetSentryPosture>
 {
 public:
@@ -17,7 +22,8 @@ public:
     static BT::PortsList providedPorts()
     {
         return {
-            BT::InputPort<int>("robot_posture_status", "要切换的机器人姿态"),
+            BT::InputPort<Posture>("robot_posture_status",
+                "POSTURE_DEFENSE / POSTURE_ATTACK / POSTURE_MOVE 或数字"),
             BT::InputPort<bool>("override", false, "是否强制覆盖当前状态")
         };
     }
@@ -27,7 +33,7 @@ public:
     BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override;
 
 private:
-    int target_posture_ {0};
+    Posture target_posture_ {POSTURE_DEFENSE};
 };
 
 } // namespace rm_behavior_tree

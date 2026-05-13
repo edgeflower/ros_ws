@@ -1,0 +1,5 @@
+output_bags:
+  - uri: mcap_bag
+    storage_id: mcap
+    compression_mode: file
+    compression_format: zstd

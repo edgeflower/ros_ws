@@ -31,6 +31,7 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory("pb2025_nav_bringup")
     launch_dir = os.path.join(bringup_dir, "launch")
     odin_driver_dir = get_package_share_directory("odin_ros_driver")
+    robot_area_detector_dir = get_package_share_directory("robot_area_detector")
     
     # Create the launch configuration variables
     namespace = LaunchConfiguration("namespace")
@@ -58,13 +59,13 @@ def generate_launch_description():
 
     declare_slam_cmd = DeclareLaunchArgument(
         "slam",
-        default_value="True",
+        default_value="False",
         description="Whether run a SLAM. If True, it will disable small_gicp and send static tf (map->odom)",
     )
 
     declare_world_cmd = DeclareLaunchArgument(
         "world",
-        default_value="test",
+        default_value="test_gai",
         description="Select world: 'rmul_2024' or 'rmuc_2024' (map file share the same name as the this parameter)",
     )
 
@@ -184,8 +185,14 @@ def generate_launch_description():
         output="screen",
         parameters=[configured_params],
     )
-
-
+    
+    start_livox_chuck_cmd = Node(
+        package="mid360_chunked_cloud",
+        executable="mid360_chunked_cloud_node",
+        name="mid360_chunked_cloud",
+        output="screen",
+        parameters=[configured_params],
+    )
 
     rviz_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(launch_dir, "rviz_launch.py")),
@@ -217,6 +224,13 @@ def generate_launch_description():
             os.path.join(odin_driver_dir, "launch", "odin1_ros2.launch.py")
         ),
         # 如果需要传递参数给 odin driver，可以在这里添加
+    )
+    
+    start_robot_area_detector_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(robot_area_detector_dir, "launch", "robot_area_detector.launch.py")
+        ),
+        # 如果需要传递参数给 robot area detector，可以在这里添加
     )
 
         
@@ -290,12 +304,14 @@ def generate_launch_description():
     ld.add_action(start_robot_state_publisher_cmd)
     ld.add_action(start_livox_ros_driver2_node)
     # ld.add_action(start_cloud_filter_cmd)
+    # ld.add_action(start_cloud_converter_cmd) # 这个节点比较轻量，放在前面启动，确保点云数据尽快发布出来
     ld.add_action(start_odin_driver_cmd)
     # ld.add_action(start_cloud_converter_cmd)
     ld.add_action(bringup_cmd)
 
-    ld.add_action(rviz_cmd)
+    # ld.add_action(rviz_cmd)
     ld.add_action(foxglove_bridge)
+    # ld.add_action(start_robot_area_detector_cmd) # 启动机器人区域检测节点
     #ld.add_action(bag_recorder)
 
     return ld

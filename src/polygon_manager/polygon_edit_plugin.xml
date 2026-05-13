@@ -1,0 +1,9 @@
+<library path="polygon_edit_panel">
+  <class name="polygon_manager/PolygonEditPanel"
+    type="polygon_manager::PolygonEditPanel"
+    base_class_type="rviz_common::Panel">
+    <description>
+      Panel for editing polygon areas (forbidden, protect, patrol, attack)
+    </description>
+  </class>
+</library>

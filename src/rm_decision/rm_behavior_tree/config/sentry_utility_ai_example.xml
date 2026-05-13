@@ -1,0 +1,112 @@
+<!--
+  哨兵 Utility AI 战术决策行为树示例
+
+  架构说明：
+  ┌─ SubSentryDecision（订阅 /sentry_decision，存入黑板 {sentry_decision}）
+  │
+  └─ Fallback（优先级从上到下，第一个 SUCCESS 就停止）
+       │
+       ├─ Sequence: RETREAT（最高优先级 - 保命）
+       │   ├─ CheckDecision(expected_mode="RETREAT")
+       │   └─ SendGoal(target_pose) → 导航到撤退点
+       │
+       ├─ Sequence: SUPPLY（补给 - 恢复血量/弹药）
+       │   ├─ CheckDecision(expected_mode="SUPPLY")
+       │   └─ SendGoal(target_pose) → 导航到补给点
+       │
+       ├─ Sequence: ATTACK（攻击 - 追击敌人）
+       │   ├─ CheckDecision(expected_mode="ATTACK")
+       │   └─ SendGoal(target_pose) → 导航到敌人位置
+       │
+       ├─ Sequence: DEFEND_BASE（防守基地）
+       │   ├─ CheckDecision(expected_mode="DEFEND_BASE")
+       │   └─ SendGoal(target_pose) → 导航到防守点
+       │
+       └─ Sequence: PATROL（最低优先级 - 巡逻）
+           ├─ CheckDecision(expected_mode="PATROL")
+           └─ SendGoal(target_pose) → 导航到巡逻点
+
+  优先级：RETREAT > SUPPLY > ATTACK > DEFEND_BASE > PATROL
+  Fallback 节点会按顺序尝试每个分支，第一个 CheckDecision 返回 SUCCESS 的分支被执行。
+  utility_ai_node 的评分逻辑已经考虑了优先级，所以这里只需按优先级排列即可。
+
+  使用方式：
+  1. 确保 utility_ai_node 正在运行（发布 /sentry_decision）
+  2. 将此 XML 作为行为树配置加载
+-->
+<root BTCPP_format="4">
+
+  <BehaviorTree ID="SentryUtilityAI">
+    <!--
+      第一层：先订阅决策消息，再按优先级执行
+      SubSentryDecision 每次被 tick 都会从 /sentry_decision 更新黑板数据
+    -->
+    <Sequence>
+      <SubSentryDecision topic_name="/sentry_decision"
+                         sentry_decision="{sentry_decision}"/>
+
+      <!-- 按优先级从高到低排列的 Fallback -->
+      <Fallback>
+
+        <!-- ====== RETREAT：撤退（最高优先级） ====== -->
+        <Sequence name="retreat_branch">
+          <CheckDecision sentry_decision="{sentry_decision}"
+                         expected_mode="RETREAT"
+                         target_pose="{retreat_goal}"
+                         reason="{reason}"
+                         current_mode="{current_mode}"/>
+          <!-- 使用 SendGoal 或你的导航节点导航到 retreat_goal -->
+          <!-- <SendGoal goal_pose="{retreat_goal}"/> -->
+          <PrintMessage message="RETREAT: {reason}"/>
+        </Sequence>
+
+        <!-- ====== SUPPLY：补给 ====== -->
+        <Sequence name="supply_branch">
+          <CheckDecision sentry_decision="{sentry_decision}"
+                         expected_mode="SUPPLY"
+                         target_pose="{supply_goal}"
+                         reason="{reason}"
+                         current_mode="{current_mode}"/>
+          <!-- <SendGoal goal_pose="{supply_goal}"/> -->
+          <PrintMessage message="SUPPLY: {reason}"/>
+        </Sequence>
+
+        <!-- ====== ATTACK：攻击 ====== -->
+        <Sequence name="attack_branch">
+          <CheckDecision sentry_decision="{sentry_decision}"
+                         expected_mode="ATTACK"
+                         target_pose="{attack_goal}"
+                         reason="{reason}"
+                         current_mode="{current_mode}"/>
+          <!-- 攻击模式下可以用 ChaseGoal 追击动态目标 -->
+          <!-- <SendGoal goal_pose="{attack_goal}"/> -->
+          <PrintMessage message="ATTACK: {reason}"/>
+        </Sequence>
+
+        <!-- ====== DEFEND_BASE：防守基地 ====== -->
+        <Sequence name="defend_base_branch">
+          <CheckDecision sentry_decision="{sentry_decision}"
+                         expected_mode="DEFEND_BASE"
+                         target_pose="{defend_goal}"
+                         reason="{reason}"
+                         current_mode="{current_mode}"/>
+          <!-- <SendGoal goal_pose="{defend_goal}"/> -->
+          <PrintMessage message="DEFEND_BASE: {reason}"/>
+        </Sequence>
+
+        <!-- ====== PATROL：巡逻（最低优先级） ====== -->
+        <Sequence name="patrol_branch">
+          <CheckDecision sentry_decision="{sentry_decision}"
+                         expected_mode="PATROL"
+                         target_pose="{patrol_goal}"
+                         reason="{reason}"
+                         current_mode="{current_mode}"/>
+          <!-- <SendGoal goal_pose="{patrol_goal}"/> -->
+          <PrintMessage message="PATROL: {reason}"/>
+        </Sequence>
+
+      </Fallback>
+    </Sequence>
+  </BehaviorTree>
+
+</root>

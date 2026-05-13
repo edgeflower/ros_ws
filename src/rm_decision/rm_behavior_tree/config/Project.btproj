@@ -13,6 +13,15 @@
         <Action ID="IsDetectEnemy" editable="true">
             <input_port name="message" default="{armors}"/>
         </Action>
+        <Condition ID="IsNav2GoalNear">
+            <input_port name="goal_pose" default="{current_goal_target}"/>
+            <input_port name="global_frame" default="map"/>
+            <input_port name="robot_frame" default="chassis"/>
+            <input_port name="distance_threshold" default="0.5"/>
+            <input_port name="tf_timeout" default="0.2"/>
+            <input_port name="feedback_topic" default="/navigate_to_pose/_action/feedback"/>
+            <input_port name="feedback_timeout" default="0.5"/>
+        </Condition>
         <Action ID="IsFriendOK" editable="true">
             <input_port name="message" default="{robot_hp}"/>
             <input_port name="friend_color" default="red"/>
@@ -43,6 +52,15 @@
         <Action ID="SendGoal" editable="true">
             <input_port name="goal_pose" default="0;0;0; 0;0;0;1"/>
             <input_port name="action_name" default="/red_standard_robot1/navigate_to_pose"/>
+        </Action>
+        <Action ID="SendNav2Goal" editable="true">
+            <input_port name="goal_pose" default="{current_goal_target}"/>
+            <input_port name="action_name" default="/navigate_to_pose"/>
+            <input_port name="min_distance" default="0.5"/>
+        </Action>
+        <Action ID="CancelNav2Goal" editable="true">
+            <input_port name="action_name" default="/navigate_to_pose"/>
+            <input_port name="timeout" default="1.0"/>
         </Action>
         <Action ID="SubAllRobotHP" editable="true">
             <input_port name="topic_name" default="robot_hp"/>

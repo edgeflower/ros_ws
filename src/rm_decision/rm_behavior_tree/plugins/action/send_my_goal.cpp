@@ -49,7 +49,7 @@ bool SendMyGoalAction::setGoal(nav2_msgs::action::NavigateToPose::Goal & goal)
           node_->get_logger(),
           "Goal '%s' has reached max visits (%d). Skipping.",
           goal_id.c_str(), max_visits);
-        return false;  // 返回false将不会发送目标
+        return true;  // 返回false将不会发送目标
       }
 
       // 增加访问计数
@@ -108,6 +108,8 @@ bool SendMyGoalAction::setGoal(nav2_msgs::action::NavigateToPose::Goal & goal)
     << goal.pose.pose.orientation.w << " ]\n";
   // clang-format on
   */
+  out_goal_ = pose;
+  setOutput("out_robot_pose", out_goal_);
 
   return true;
 }

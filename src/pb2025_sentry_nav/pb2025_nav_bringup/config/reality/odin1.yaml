@@ -10,6 +10,52 @@ livox_ros_driver2:
     cmdline_input_bd_code: livox0000000001
     lvx_file_path: ""
 
+mid360_chunk_cloud_node:
+  ros__parameters:
+    input_topic: "/livox/lidar"
+    output_topic: "/mid360_chunked_cloud"
+
+    # 每帧切成几个时间块
+    # MID360 默认 10Hz，chunk_count=5 时输出约 50Hz
+    chunk_count: 5
+
+    # 原始点云频率，用于估算分时发布间隔
+    # MID360 默认一般是 10Hz
+    input_cloud_hz: 10.0
+
+    # Livox xfer_format=0 的 PointCloud2 时间字段名称
+    timestamp_field_name: "timestamp"
+
+    # timestamp 字段是否为绝对时间
+    # Livox PointXYZRTLT 中 timestamp 一般是每个点自己的时间戳
+    timestamp_is_absolute: true
+
+    # 如果 timestamp 字段异常，是否回退到按点序号均匀切分
+    fallback_to_index_split: true
+
+    # 是否发布空 chunk
+    publish_empty_chunk: false
+
+    # 性能模式：输出只保留 x/y/z/intensity 四个 float32 字段
+    # intensity 固定为 0，不再输出 tag/line/timestamp，可显著降低拷贝量和 DDS 带宽
+    # 如果需要保留 Livox 原始字段结构，设为 false
+    output_xyzi_only: true
+
+    # 是否将 PointCloud2 中的 intensity(i) 字段置 0
+    # output_xyzi_only=true 时 intensity 本来就是 0
+    # output_xyzi_only=false 时仍保留原始字段结构，只把 intensity 的 float32 值清零
+    zero_intensity: true
+
+    # QoS 队列长度
+    qos_depth: 5
+
+    # 如果上一帧 chunk 还没发完，新点云来了是否丢弃旧 chunk
+    drop_old_chunks_when_new_cloud_arrives: true
+
+    # 是否打印调试信息
+    debug: true
+
+
 cpp_lidar_filter:
   ros__parameters:
     input_topic: "livox/lidar"
@@ -102,13 +148,13 @@ terrain_analysis:
     # ---------- 无数据处理 ----------
     noDataObstacle: False              # 是否将无数据区域视为障碍（True更保守）
     noDataBlockSkipNum: 0              # 无数据块跳过数量
-    minBlockPointNum: 5               # 每个体素块最少点数要求
+    minBlockPointNum: 25               # 每个体素块最少点数要求
 
     # ---------- 车辆高度过滤 ----------
-    vehicleHeight: 1.5                 # 仅处理低于车辆高度的点（过滤天花板）
+    vehicleHeight: 2.5                 # 仅处理低于车辆高度的点（过滤天花板）
 
     # ---------- 体素更新机制 ----------
-    voxelPointUpdateThre: 20          # 单体素更新所需最少点数
+    voxelPointUpdateThre: 50          # 单体素更新所需最少点数
     voxelTimeUpdateThre: 1.0           # 单体素强制更新时间阈值（秒）
 
     # ---------- 相对高度范围 ----------
@@ -175,7 +221,7 @@ pointcloud_to_laserscan:
     target_frame: base_footprint
     min_height: -0.5
     max_height: 3.0
-    min_intensity: 0.15
+    min_intensity: 0.1
     max_intensity: 2.0
     angle_min: -3.1415926                   # -M_PI/2
     angle_max: 3.1415926                    # M_PI/2
@@ -597,9 +643,9 @@ local_costmap:
           z_resolution: 0.025
           z_voxels: 16
           min_obstacle_height: -1.0
-          max_obstacle_height: 2.5
-          min_obstacle_intensity: 0.05    # 过滤过低强度（坑洼）
-          max_obstacle_intensity: 2.0    # 过滤过高强度
+          max_obstacle_height: 3.5
+          min_obstacle_intensity: 0.1    # 过滤过低强度（坑洼）
+          max_obstacle_intensity: 1.0    # 过滤过高强度
           observation_sources: terrain_map
           terrain_map:
             data_type: PointCloud2
@@ -608,7 +654,7 @@ local_costmap:
             min_obstacle_height: -0.5
             max_obstacle_height: 2.0
             obstacle_max_range: 8.0
-            obstacle_min_range: 0.5
+            obstacle_min_range: 0.65
             marking: true    # 只标记，不清除
             clearing: true
           
@@ -668,7 +714,7 @@ local_costmap:
           observation_sources: livox_clearing                                                                                                                                                       
           livox_clearing:                                                                                                                                                                           
             data_type: PointCloud2                                                                                                                                                                  
-            topic: /livox/lidar                                                                                                                                                        
+            topic: /mid360_chunked_cloud                                                                                                                                                        
             transport_type: "raw"                                                                                                                                                                   
             marking: false                   # ← 关键！关闭 marking，由我们的插件负责                                                                                                               
             clearing: true                   # ← 保留 frustum raytrace 清除                                                                                                                         
@@ -693,8 +739,8 @@ local_costmap:
           far_decay: 1.5                    # 远距离障碍存活 1.5s                                                                                                                                   
           near_threshold: 1.5               # 近/远分界 (m)                                                                                                                                         
           far_threshold: 8.0                # 最大距离，超出丢弃                                                                                                                                    
-          base_min_z: 0.1                  # 高度下限 (相对 odom Z)  0.1      -0.4                                                                                                                  
-          base_max_z: 0.1                   # 高度上限       0.3             -0.3                                                                                                                        
+          base_min_z: 0.15                  # 高度下限 (相对 odom Z)  0.1      -0.4                                                                                                                  
+          base_max_z: 0.20                   # 高度上限       0.3             -0.3                                                                                                                        
           odom_timeout: 0.5                                                                                                                                                                         
           odom_topic: "/odin1/odometry_highfreq"                                                                                                                                                             
           pointcloud_topic: "/livox/lidar"  # 我们的 marking 用原始点云                                                                                                                             

@@ -7,3 +7,4 @@ float32 gimbal_big_yaw_angle #大云台旋转角度 （rad  -π到π）
 bool follow_gimbal_big  # 底盘跟随 false 不跟随   true 跟随
 float32 chassis_vel_multi # 底盘倍率 对于速度，仅需要0~1倍率
 bool track_status # 是否启动履带 false 不启动 true 启动
+bool perception_status # 大云台是否跟随全向感知 false 不跟随 true 跟随  默认跟随

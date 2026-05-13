@@ -1,0 +1,23 @@
+enemy_forbidden_area_detector:
+  ros__parameters:
+    # 禁区配置文件路径（来自 polygon_manager）
+    areas_yaml_path: "/home/sentry/Desktop/ros_ws/src/polygon_manager/config/areas.yaml"
+
+    # 敌方目标话题
+    target_topic: "/target_tracking"
+
+    # 检测结果输出话题
+    result_topic: "/enemy_in_forbidden_area"
+
+    # 地图坐标系（禁区定义使用的坐标系）
+    map_frame: "map"
+
+    # 连续检测滤波阈值
+    inside_threshold: 5
+    outside_threshold: 10
+
+    # TF2 转换超时（秒）
+    transform_timeout: 0.2
+
+    # 是否启用 RViz 可视化
+    enable_visualization: true

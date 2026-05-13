@@ -54,13 +54,17 @@ BT::NodeStatus GetLocationAction::onTick(
 
         return BT::NodeStatus::SUCCESS;
     } else {
-        // Dynamic warning: show actual topic name instead of hard-coded "/odometry"
+        // No message yet: output default pose and return SUCCESS
+        // to avoid halting the entire ReactiveSequence
+        setOutput("robot_location", robot_location);
+
         std::string topic_name;
         getInput("topic_name", topic_name);
         if (topic_name.empty()) {
             topic_name = "(unknown)";
         }
-        RCLCPP_WARN(logger(), "[GetLocation] Waiting for %s message...", topic_name.c_str());
+        RCLCPP_WARN_THROTTLE(logger(), *node_->get_clock(), 5000,
+                             "[GetLocation] Waiting for %s message...", topic_name.c_str());
         return BT::NodeStatus::FAILURE;
     }
 }

@@ -1,6 +1,7 @@
 std_msgs/Header header
 bool tracking
 int32 tracking_status
+float64 confidence
 string id
 int32 armors_num
 geometry_msgs/Point position

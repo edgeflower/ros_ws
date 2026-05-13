@@ -30,7 +30,7 @@ BT::NodeStatus IsStatusOKAction::checkRobotStatus()
         "[🔍 检查] current_hp=%d (阈值=%d), shooter_heat=%d (阈值=%d), shot_allowance=%d(阈值=%d)",
         current_hp, hp_threshold, current_heat, heat_threshold, current_shot, shot_threshold);
 
-    if (current_hp < hp_threshold || current_heat > heat_threshold || current_shot < shot_threshold) {
+    if (current_hp < hp_threshold || current_heat < heat_threshold || current_shot < shot_threshold) {
         RCLCPP_WARN(rclcpp::get_logger("IsStatusOK"), "❌ 状态异常：血量过低或热量过高或17mm 弹丸允许发射量不足");
         return BT::NodeStatus::FAILURE;
     }

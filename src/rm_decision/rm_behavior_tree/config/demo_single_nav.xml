@@ -1,46 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  模式一：单点导航
-  目标点来源：main.cpp 中 loadPoseStamped 预设到黑板，或直接硬编码
-  适用场景：只需去一个固定位置（出发点、补给站等）
-
-  两种写法：
-  A) PubNav2Goal：话题发布，fire-and-forget，需配合 WaitUntilReached 判断到达
-  B) SendNav2Goal：Action 发送，自带结果回调，导航完成返回 SUCCESS/FAILURE
--->
 <root BTCPP_format="4"
       main_tree_to_execute="SingleNav_PubTopic">
-
-  <!-- ========== 写法 A：话题发布 + 到达判断 ========== -->
   <BehaviorTree ID="SingleNav_PubTopic">
-    <ReactiveSequence>
-      <PubNav2Goal goal_pose="{main_position}"
-                   frame_id="map"
-                   min_pub_interval_ms="500"/>
-      <WaitUntilReached goal_pose="{main_position}"
-                        tolerance="0.5"/>
-    </ReactiveSequence>
+    <ReactiveFallback>
+      <IsNav2GoalNear goal_pose="{current_goal_target}"
+                      global_frame="map"
+                      robot_frame="chassis"
+                      distance_threshold="0.5"
+                      tf_timeout="0.2"/>
+      <ReactiveSequence>
+        <PubNav2Goal goal_pose="{main_position}"
+                     frame_id="map"
+                     min_pub_interval_ms="500"/>
+        <WaitUntilReached goal_pose="{main_position}"
+                          tolerance="0.5"/>
+      </ReactiveSequence>
+    </ReactiveFallback>
   </BehaviorTree>
 
-  <!-- ========== 写法 B：Action 发送（自带等待） ========== -->
-  <!--
-  <BehaviorTree ID="SingleNav_Action">
-    <SendNav2Goal goal_pose="{main_position}"/>
-  </BehaviorTree>
-  -->
-
+  <!-- Description of Node Models (used by Groot) -->
   <TreeNodesModel>
+    <Condition ID="IsNav2GoalNear">
+      <input_port name="goal_pose"
+                  default="{current_goal_target}"/>
+      <input_port name="global_frame"
+                  default="map"/>
+      <input_port name="robot_frame"
+                  default="chassis"/>
+      <input_port name="distance_threshold"
+                  default="0.5"/>
+      <input_port name="tf_timeout"
+                  default="0.2"/>
+    </Condition>
     <Action ID="PubNav2Goal">
       <input_port name="goal_pose"/>
-      <input_port name="frame_id" default="map"/>
+      <input_port name="frame_id"
+                  default="map"/>
       <input_port name="min_pub_interval_ms"/>
-    </Action>
-    <Action ID="SendNav2Goal">
-      <input_port name="goal_pose"/>
     </Action>
     <Action ID="WaitUntilReached">
       <input_port name="goal_pose"/>
-      <input_port name="tolerance" default="0.5"/>
+      <input_port name="tolerance"
+                  default="0.5"/>
     </Action>
   </TreeNodesModel>
 

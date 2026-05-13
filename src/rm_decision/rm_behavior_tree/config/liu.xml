@@ -35,7 +35,8 @@
       <IfThenElse>
         <IsStatusOK message="{robot_status}"
                     hp_threshold="160"
-                    heat_threshold="0"/>
+                    heat_threshold="0"
+                    shot_threshold="10"/>
         <Parallel failure_count="1"
                   success_count="1">
           <KeepRunningUntilFailure>
@@ -49,7 +50,8 @@
                               gimbal_big_yaw_angle="0.0"
                               follow_gimbal_big="0.0"
                               chassis_vel_multi="0.4"
-                              stop_chassis_vel_multi="False"/>
+                              stop_chassis_vel_multi="False"
+                              track_status="false"/>
               </ReactiveSequence>
               <ReactiveSequence>
                 <CheckHysteresisState state="{hysteresis_state}"
@@ -60,7 +62,8 @@
                               gimbal_big_yaw_angle="0.0"
                               follow_gimbal_big="0.0"
                               chassis_vel_multi="0.8"
-                              stop_chassis_vel_multi="False"/>
+                              stop_chassis_vel_multi="False"
+                              track_status="false"/>
               </ReactiveSequence>
               <ReactiveSequence>
                 <CheckHysteresisState state="{hysteresis_state}"
@@ -71,7 +74,8 @@
                               gimbal_big_yaw_angle="0.0"
                               follow_gimbal_big="1.0"
                               chassis_vel_multi="1.0"
-                              stop_chassis_vel_multi="False"/>
+                              stop_chassis_vel_multi="False"
+                              track_status="false"/>
               </ReactiveSequence>
             </ReactiveFallback>
           </KeepRunningUntilFailure>
@@ -85,7 +89,8 @@
                                 gimbal_big_yaw_angle="-1.57"
                                 follow_gimbal_big="0"
                                 chassis_vel_multi="1.0"
-                                stop_chassis_vel_multi="True"/>
+                                stop_chassis_vel_multi="True"
+                                track_status="false"/>
                   <SendMyGoal name="NavigateToObservation"
                               my_goal_pose="0.5621;-4.68364;0;0;0;-0.599423;0.800433"
                               action_name="/navigate_to_pose"
@@ -115,7 +120,8 @@
                               gimbal_big_yaw_angle="0.785"
                               follow_gimbal_big="0.0"
                               chassis_vel_multi="1.0"
-                              stop_chassis_vel_multi="True"/>
+                              stop_chassis_vel_multi="True"
+                              track_status="false"/>
                 <SendMyGoal name="NavigateToObservation"
                             my_goal_pose="4.50601;-4.83459;0;0;0;-0.022712;0.999742"
                             action_name="/navigate_to_pose"
@@ -134,7 +140,8 @@
                               gimbal_big_yaw_angle="1.57"
                               follow_gimbal_big="0.0"
                               chassis_vel_multi="1.0"
-                              stop_chassis_vel_multi="True"/>
+                              stop_chassis_vel_multi="True"
+                              track_status="false"/>
                 <SendMyGoal name="NavigateToObservation"
                             my_goal_pose="5.67713;-4.8855;0;0;0;-0.22631;0.974055"
                             action_name="/navigate_to_pose"
@@ -155,7 +162,8 @@
                                   gimbal_big_yaw_angle="1.57"
                                   follow_gimbal_big="0.0"
                                   chassis_vel_multi="1.0"
-                                  stop_chassis_vel_multi="True"/>
+                                  stop_chassis_vel_multi="True"
+                                  track_status="false"/>
                     <SendMyGoal name="NavigateToObservation"
                                 my_goal_pose="4.94981;-1.04807;0;0;0;-0.00281009;0.999996"
                                 action_name="/navigate_to_pose"
@@ -174,7 +182,8 @@
                                   gimbal_big_yaw_angle="-1.57"
                                   follow_gimbal_big="0.0"
                                   chassis_vel_multi="1.0"
-                                  stop_chassis_vel_multi="True"/>
+                                  stop_chassis_vel_multi="True"
+                                  track_status="false"/>
                     <SendMyGoal name="NavigateToObservation"
                                 my_goal_pose="3.74664;-1.049054;0;0;0;-0.12415;0.992263"
                                 action_name="/navigate_to_pose"
@@ -193,7 +202,8 @@
                                   gimbal_big_yaw_angle="-0.385"
                                   follow_gimbal_big="0.0"
                                   chassis_vel_multi="1.0"
-                                  stop_chassis_vel_multi="True"/>
+                                  stop_chassis_vel_multi="True"
+                                  track_status="false"/>
                     <SendMyGoal name="NavigateToObservation"
                                 my_goal_pose="4.50601;-4.83459;0;0;0;-0.022712;0.999742"
                                 action_name="/navigate_to_pose"
@@ -216,7 +226,8 @@
                           gimbal_big_yaw_angle="0.0"
                           follow_gimbal_big="0"
                           chassis_vel_multi="1.0"
-                          stop_chassis_vel_multi="True"/>
+                          stop_chassis_vel_multi="True"
+                          track_status="false"/>
             <SendMyGoal name="NavigateToObservation"
                         my_goal_pose="0.1;0.3;0;0;0;-0.227012;0.973892"
                         action_name="/navigate_to_pose"
@@ -304,15 +315,16 @@
       <input_port name="higher_remain_time"
                   default="300"/>
     </Action>
-    <Action ID="IsStatusOK"
-            editable="true">
+    <Condition ID="IsStatusOK">
       <input_port name="message"
                   default="{robot_status}"/>
       <input_port name="hp_threshold"
-                  default="100"/>
+                  default="150"/>
       <input_port name="heat_threshold"
-                  default="350"/>
-    </Action>
+                  default="300"/>
+      <input_port name="shot_threshold"
+                  default="10"/>
+    </Condition>
     <Action ID="RobotControl">
       <input_port name="stop_gimbal_scan"
                   default="True"/>
@@ -323,11 +335,13 @@
       <input_port name="gimbal_big_yaw_angle"
                   default="0.785"/>
       <input_port name="follow_gimbal_big"
-                  default="0.0"/>
+                  default="true"/>
       <input_port name="chassis_vel_multi"
                   default="1.0"/>
       <input_port name="stop_chassis_vel_multi"
                   default="True"/>
+      <input_port name="track_status"
+                  default="false"/>
     </Action>
     <Action ID="SendMyGoal">
       <input_port name="my_goal_pose"

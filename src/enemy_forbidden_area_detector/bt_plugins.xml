@@ -1,0 +1,9 @@
+<library path="bt_enemy_in_forbidden_area">
+  <class name="enemy_forbidden_area_detector/EnemyInForbiddenArea"
+    type="enemy_forbidden_area_detector::EnemyInForbiddenAreaCondition"
+    base_class_type="BT::ConditionNode">
+    <description>
+      Check if enemy is in forbidden area by subscribing to /enemy_in_forbidden_area
+    </description>
+  </class>
+</library>

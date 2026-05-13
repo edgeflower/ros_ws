@@ -1,8 +1,10 @@
 #ifndef RM_BEHAVIOR_TREE__PLUGINS__ACTION__SEND_NAV2_GOAL_HPP_
 #define RM_BEHAVIOR_TREE__PLUGINS__ACTION__SEND_NAV2_GOAL_HPP_
 
+#include <behaviortree_cpp/basic_types.h>
 #include <iomanip>
 #include <iostream>
+#include <rclcpp/logging.hpp>
 
 #include "behaviortree_ros2/bt_action_node.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -14,18 +16,27 @@ namespace rm_behavior_tree
 class SendNav2Goal : public BT::RosActionNode<nav2_msgs::action::NavigateToPose>
 {
 public:
+  static BT::RosNodeParams configureParams(BT::RosNodeParams params)
+  {
+    params.server_timeout = std::chrono::milliseconds(30000);
+    params.wait_for_server_timeout = std::chrono::milliseconds(5000);
+    return params;
+  }
+
   SendNav2Goal(
       const std::string & name, const BT::NodeConfiguration & conf,
-      const BT::RosNodeParams & params)
-      : RosActionNode<nav2_msgs::action::NavigateToPose>(name, conf, params)
+      BT::RosNodeParams params)
+      : RosActionNode<nav2_msgs::action::NavigateToPose>(
+            name, conf, configureParams(std::move(params)))
   {
   }
 
   static BT::PortsList providedPorts()
   {
-    return {
+    return providedBasicPorts({
         BT::InputPort<geometry_msgs::msg::PoseStamped>("goal_pose", "导航目标位置"),
-    };
+        BT::InputPort<double>("min_distance", 0.5, "距离目标点多近返回成功")
+    });
   }
 
   bool setGoal(Goal & goal) override
@@ -36,15 +47,17 @@ public:
     }
 
     goal.pose = *res;
-    goal.pose.header.stamp = rclcpp::Clock().now();
+    goal.pose.header.stamp = node_->now();
 
-    // clang-format off
-    std::cout << "Goal_pose: [ "
-        << std::fixed << std::setprecision(1)
-        << goal.pose.pose.position.x << ", "
-        << goal.pose.pose.position.y << ", "
-        << goal.pose.pose.position.z << ", " << " ]\n";
-    // clang-format on
+    if (goal.pose.header.frame_id.empty()) {
+      goal.pose.header.frame_id = "map";
+    }
+
+    RCLCPP_INFO(node_->get_logger(),
+                "SendNav2Goal: frame_id=%s, x=%.2f, y=%.2f",
+                goal.pose.header.frame_id.c_str(),
+                goal.pose.pose.position.x,
+                goal.pose.pose.position.y);
 
     return true;
   }
@@ -89,16 +102,20 @@ public:
       const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback>
           feedback) override
   {
-    std::cout << "Distance remaining: " << feedback->distance_remaining << '\n';
+    RCLCPP_INFO(node_->get_logger(), "SendNav2Goal feedback: distance_remaining = %.2f",
+                feedback->distance_remaining);
     return BT::NodeStatus::RUNNING;
   }
 
   BT::NodeStatus onFailure(BT::ActionNodeErrorCode error) override
   {
     RCLCPP_ERROR(
-        node_->get_logger(), "SendGoalAction failed with error code: %d", error);
+        node_->get_logger(), "SendNav2Goal failed: %s (%d)",
+        BT::toStr(error), static_cast<int>(error));
     return BT::NodeStatus::FAILURE;
   }
+
+private:
 };
 
 } // namespace rm_behavior_tree

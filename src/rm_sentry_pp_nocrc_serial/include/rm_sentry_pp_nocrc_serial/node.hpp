@@ -6,6 +6,8 @@
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/publisher_base.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/subscription.hpp>
+#include <rm_decision_interfaces/msg/detail/enemy_forbidden_area__struct.hpp>
 #include <rm_decision_interfaces/msg/detail/enemy_location__struct.hpp>
 #include <rm_decision_interfaces/msg/detail/sentry_posture_status__struct.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -28,9 +30,10 @@
 #include <vector>
 #include <cmath>
 
+#include "chiral/chiral_endpoint.hpp"
+#include "chiral/navigation.hpp"
 #include "rm_sentry_pp_nocrc_serial/packet.hpp"
 #include "rm_sentry_pp_nocrc_serial/serial_port.hpp"
-#include "chiral/talos_triple_buffer_shm.hpp"
 #include <rm_decision_interfaces/msg/robot_control.hpp>
 #include <rm_decision_interfaces/msg/sentry_posture_cmd.hpp>
 #include <rm_decision_interfaces/msg/sentry_posture_status.hpp>
@@ -44,6 +47,7 @@
 #include<rm_decision_interfaces/msg/rfid_parse.hpp>
 #include<rm_decision_interfaces/msg/enemy_location.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <rm_decision_interfaces/msg/enemy_forbidden_area.hpp>
 
 namespace rm_sentry_pp_nocrc_serial {
 
@@ -85,9 +89,10 @@ private:
     void publishRfid(const rm_sentry_pp::ReceiveRfid& rfid_msg);
     void publishEnemyLocation(const rm_sentry_pp::ReceiveEnemyLocation& enemy_location_data);
 
-    void publishTargetTracking(const talos::chrial::TalosData& talos_data);
+    void publishTargetTracking(const talos::chiral::navigation::TalosData& talos_data);
 
     double calculateDecayedConfidence(double current_confidence, double dt);
+    void updateEnemyForbiddenArea(const rm_decision_interfaces::msg::EnemyForbiddenArea& enemy_forbidden_area);
 
     // params
     std::string port_;
@@ -134,6 +139,7 @@ private:
     rclcpp::Publisher<rm_decision_interfaces::msg::FriendLocation>::SharedPtr robot_location_pub_;
     rclcpp::Publisher<rm_decision_interfaces::msg::RFIDParse>::SharedPtr rfid_pub_;
     rclcpp::Publisher<rm_decision_interfaces::msg::EnemyLocation>::SharedPtr enemy_location_pub_;
+    rclcpp::Subscription<rm_decision_interfaces::msg::EnemyForbiddenArea>::SharedPtr enemy_forbidden_area_sub;
 
     // serial
     SerialPort sp_;
@@ -161,6 +167,7 @@ private:
     float gimbal_yaw_ = 0.0f;
     bool track_status_ = false;
     double gimbal_big_yaw_angle_state_;
+    bool perception_status_ = true;
 
 
     // Gimbal path follow - high frequency resampling
@@ -199,7 +206,6 @@ private:
     static constexpr double DRIFT_FILTER_ALPHA = 0.15;
 
     bool tx_pending_ { false };
-    bool tx_posture_pending_ { false };
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
     // tf2
@@ -207,8 +213,10 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
     // chiral
-    std::unique_ptr<talos::chiral::ipc::TalosDataReader> chiral_reader_;
-
+    std::unique_ptr<talos::chiral::navigation::NavigationEndpoint> chiral_reader_;
+    rm_decision_interfaces::msg::EnemyForbiddenArea enemy_forbidden_area_;
+    bool invincible_cache_[static_cast<size_t>(talos::chiral::navigation::ArmorName::MaxNum)] = {};
+    
 
 
     // Odometry cache
@@ -227,6 +235,12 @@ private:
     double cached_map_to_odom_yaw_ { 0.0 };
     bool has_cached_map_to_odom_ { false };
     rclcpp::TimerBase::SharedPtr map_odom_timer_;
+
+    // Posture confirmation (service blocks until lower-level reports match)
+    std::atomic<uint8_t> pending_confirm_posture_ {0};
+    std::atomic<bool> posture_confirmed_ {false};
+    int posture_confirm_timeout_ms_ {500};
+    int current_posture_ {0};
 
     // Confidence decay parameters
     double confidence_decay_lambda_ = 0.5;

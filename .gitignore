@@ -53,6 +53,9 @@ src/livox_custom_deskew_xyzi
 src/livox_custom_deskew_xyzi_node
 src/zip
 src/rm_deskew_node/
-
+mcap_bag/
+test_gai.pgm
+test_gai.yaml
+src/mid360_chunk_cloud/
 
 

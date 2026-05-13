@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4"
+      main_tree_to_execute="BehaviorTree">
+  <BehaviorTree ID="BehaviorTree">
+    <Sequence>
+      <RetryUntilSuccessful num_attempts="5">
+        <SetPosture robot_posture_status="POSTURE_MOVE"
+                    override="True"/>
+      </RetryUntilSuccessful>
+      <Wait duration="20"/>
+      <RetryUntilSuccessful num_attempts="5">
+        <SetPosture robot_posture_status="POSTURE_DEFENSE"
+                    override="False"/>
+      </RetryUntilSuccessful>
+      <Wait duration="20"/>
+      <RetryUntilSuccessful num_attempts="5">
+        <SetPosture robot_posture_status="POSTURE_ATTACK"
+                    override="False"/>
+      </RetryUntilSuccessful>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Action ID="SetPosture"
+            editable="true">
+      <input_port name="robot_posture_status"
+                  default="{robot_posture_status}"/>
+      <input_port name="override"
+                  default="False"/>
+    </Action>
+    <Action ID="Wait"
+            editable="true">
+      <input_port name="duration"
+                  default="3"/>
+    </Action>
+  </TreeNodesModel>
+
+</root>

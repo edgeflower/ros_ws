@@ -128,6 +128,9 @@ private:
         params_clear_costmap.nh = getSharedPtr();
         params_clear_costmap.default_port_value = "which"; // 输入 local global around 来选择清除哪个代价地图
 
+        BT::RosNodeParams params_cancel_nav2_goal;
+        params_cancel_nav2_goal.nh = getSharedPtr();
+        params_cancel_nav2_goal.default_port_value = "/navigate_to_pose";
         const std::vector<std::string> msg_update_plugins_libs = {
             "sub_all_robot_hp",
             "sub_robot_status",
@@ -137,6 +140,8 @@ private:
             "sub_all_robot_location",
             "sub_robot_posture",
             "sub_all_enemy_location",
+            "sub_robot_area_status",
+            "sub_sentry_decision",
         };
 
         const std::vector<std::string> bt_plugins_libs = {
@@ -149,8 +154,11 @@ private:
             "is_friend_ok",
             "is_outpost_ok",
             "is_hp_ok",
+            "is_robot_in_area",
+            "is_yaw_in_range",
             "get_current_location",
             "move_around",
+            "back_up",
             "print_message",
             "enemy_position_filter",
             "armor_to_goal",
@@ -161,7 +169,10 @@ private:
             "wait",
             "is_goal_reached",
             "set_posture_xin",
-            "bag_recorder"
+            "bag_recorder",
+            "check_blackboard",
+            "check_decision",
+            "send_cmd_vel",
             // Note: goal_manager, should_reset_observation, get_robot_location removed
             // They will be registered using RegisterRosNode below
         };
@@ -191,7 +202,7 @@ private:
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("cancel_navigation"), params_cancel_navigation);
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("calculate_angle"), params_calulate_angle);
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("clear_costmap"), params_clear_costmap);
-
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("cancel_nav2_goal"), params_cancel_nav2_goal);
         // 导航插件：需要独立的 RosNodeParams，各自连接不同的 action server
         BT::RosNodeParams params_nav;
         params_nav.nh = std::make_shared<rclcpp::Node>("nav_action");
@@ -205,6 +216,10 @@ private:
         // SendNav2Goal：Nav2 单点导航 action
         params_nav.default_port_value = "/navigate_to_pose";
         RegisterRosNode(*factory, BT::SharedLibrary::getOSName("send_nav2_goal"), params_nav);
+
+        // IsNav2GoalNear：订阅 Nav2 feedback 的剩余距离
+        params_nav.default_port_value = "/navigate_to_pose/_action/feedback";
+        RegisterRosNode(*factory, BT::SharedLibrary::getOSName("is_nav2_goal_near"), params_nav);
 
         // FollowWaypoints：Nav2 多点逐站到达 action
         params_nav.default_port_value = "/follow_waypoints";

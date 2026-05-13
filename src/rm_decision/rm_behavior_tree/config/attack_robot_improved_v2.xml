@@ -5,7 +5,8 @@
       <ReactiveSequence name="Perception">
         <SubArmors topic_name="/target_tracking"
                    armors="{armors}"/>
-        <SubRobotStatus topic_name="/robot_status"/>
+        <SubRobotStatus topic_name="/robot_status"
+                        robot_status="{robot_status}"/>
         <RobotControl stop_gimbal_scan="True"
                       chassis_spin_vel="0.0"
                       gimbal_big_yaw_vel="40.0"
@@ -19,6 +20,9 @@
                              max_distance="1.0"
                              history_size="7"
                              zero_threshold="0.1"
+                             min_output_interval="0.1"
+                             confidence_half_life="1.0"
+                             min_confidence="0.0"
                              filtered_position="{filtered_target}"/>
         <ConfidenceHysteresis target="{filtered_target}"
                               upper_threshold="0.5"
@@ -65,6 +69,7 @@
           </Once>
           <SendGoal goal_pose="{hold_goal}"
                     action_name="/navigate_to_pose"
+                    min_goal_distance="0.5"
                     current_goal_id="-2"
                     reached_goal_id="{hold_reached_goal_id}"/>
         </ReactiveSequence>
@@ -104,6 +109,7 @@
           <SendGoal name="NavigateToObservation"
                     goal_pose="{best_goal}"
                     action_name="/navigate_to_pose"
+                    min_goal_distance="0.5"
                     current_goal_id="{goal_id}"
                     reached_goal_id="{patrol_reached_goal_id}"/>
         </ReactiveSequence>
@@ -283,12 +289,15 @@
                   default="{best_goal}"/>
       <input_port name="action_name"
                   default="/navigate_to_pose"/>
+      <input_port name="min_goal_distance"
+                  default="0.5"/>
       <input_port name="current_goal_id"
                   default="{goal_id}"/>
       <output_port name="reached_goal_id"
                    default="{reached_goal_id}"/>
     </Action>
-    <Action ID="SubArmors">
+    <Action ID="SubArmors"
+            editable="true">
       <input_port name="topic_name"
                   default="/detector/armors"/>
       <output_port name="armors"

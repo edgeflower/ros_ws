@@ -12,7 +12,7 @@ SetPosture::SetPosture(
 
 bool SetPosture::setRequest(Request::SharedPtr & request)
 {
-    if (!getInput("posture", target_posture_)) {
+    if (!getInput("robot_posture_status", target_posture_)) {
         RCLCPP_ERROR(node_->get_logger(), "[%s] 缺少姿态参数!", name().c_str());
         return false;
     }
@@ -24,7 +24,7 @@ bool SetPosture::setRequest(Request::SharedPtr & request)
     request->override_mode = override_mode;
 
     RCLCPP_INFO(node_->get_logger(), "[%s] 发送姿态请求: posture = %d, override = %s",
-                name().c_str(), target_posture_, override_mode ? "true" : "false");
+                name().c_str(), static_cast<int>(target_posture_), override_mode ? "true" : "false");
     return true;
 }
 

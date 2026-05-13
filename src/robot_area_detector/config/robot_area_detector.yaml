@@ -1,0 +1,18 @@
+robot_area_detector_node:
+  ros__parameters:
+    areas_yaml: "/home/sentry/Desktop/ros_ws/src/polygon_manager/config/areas.yaml"
+
+    map_frame: "map"
+    robot_frame: "chassis"
+
+    check_frequency: 20.0
+    tf_timeout: 0.1
+
+    status_topic: "/robot_area_status"
+    marker_topic: "/robot_area_detector/markers"
+
+    target_area_type: ""
+    target_area_name: ""
+
+    publish_marker: true
+    print_debug: false

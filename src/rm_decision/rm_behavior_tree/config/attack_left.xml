@@ -21,9 +21,23 @@
           <WhileDoElse name="Whether gimbal_scan/chassis_spin">
             <IsDetectEnemy message="{armors}"/>
             <RobotControl stop_gimbal_scan="True"
-                          chassis_spin_vel="0.5"/>
+                          chassis_spin_vel="0.5"
+                          gimbal_big_yaw_vel="1.0"
+                          gimbal_big_yaw_angle="0.785"
+                          follow_gimbal_big="true"
+                          chassis_vel_multi="1.0"
+                          stop_chassis_vel_multi="True"
+                          track_status="false"
+                          perception_status="True"/>
             <RobotControl stop_gimbal_scan="False"
-                          chassis_spin_vel="0.5"/>
+                          chassis_spin_vel="0.5"
+                          gimbal_big_yaw_vel="1.0"
+                          gimbal_big_yaw_angle="0.785"
+                          follow_gimbal_big="true"
+                          chassis_vel_multi="1.0"
+                          stop_chassis_vel_multi="True"
+                          track_status="false"
+                          perception_status="True"/>
           </WhileDoElse>
           <WhileDoElse>
             <Sequence>
@@ -46,7 +60,9 @@
                             heat_threshold="350"/>
                 <SendGoal name="SupplyArea"
                           goal_pose="7.65;4.07;1.19; 0;0;0;1"
-                          action_name="/red_standard_robot1/navigate_to_pose"/>
+                          action_name="/red_standard_robot1/navigate_to_pose"
+                          current_goal_id="{goal_id}"
+                          reached_goal_id="{reached_goal_id}"/>
               </Fallback>
             </WhileDoElse>
             <WhileDoElse>
@@ -70,7 +86,9 @@
                   <RateController hz="1">
                     <SendGoal name="OccupyCenter"
                               goal_pose="3.0;0.4;0; 0;0;0;1"
-                              action_name="/red_standard_robot1/navigate_to_pose"/>
+                              action_name="/red_standard_robot1/navigate_to_pose"
+                              current_goal_id="{goal_id}"
+                              reached_goal_id="{reached_goal_id}"/>
                   </RateController>
                   <WhileDoElse name="Attack">
                     <IsFriendOK message="{robot_hp}"
@@ -78,12 +96,16 @@
                     <RateController hz="1">
                       <SendGoal name="Attack_Left"
                                 goal_pose="5.1;1.9;0; 0;0;0;1"
-                                action_name="/red_standard_robot1/navigate_to_pose"/>
+                                action_name="/red_standard_robot1/navigate_to_pose"
+                                current_goal_id="{goal_id}"
+                                reached_goal_id="{reached_goal_id}"/>
                     </RateController>
                     <RateController hz="1">
                       <SendGoal name="Center"
                                 goal_pose="3;1;0; 0;0;0;1"
-                                action_name="/red_standard_robot1/navigate_to_pose"/>
+                                action_name="/red_standard_robot1/navigate_to_pose"
+                                current_goal_id="{goal_id}"
+                                reached_goal_id="{reached_goal_id}"/>
                     </RateController>
                   </WhileDoElse>
                 </WhileDoElse>
@@ -92,7 +114,9 @@
                               hz="1">
                 <SendGoal name="SupplyArea"
                           goal_pose="-2.5;4.07;0; 0;0;0;1"
-                          action_name="/red_standard_robot1/navigate_to_pose"/>
+                          action_name="/red_standard_robot1/navigate_to_pose"
+                          current_goal_id="{goal_id}"
+                          reached_goal_id="{reached_goal_id}"/>
               </RateController>
             </WhileDoElse>
           </WhileDoElse>
@@ -101,10 +125,19 @@
           <RateController hz="1">
             <SendGoal name="Home"
                       goal_pose="0;0;0; 0;0;0;1"
-                      action_name="/red_standard_robot1/navigate_to_pose"/>
+                      action_name="/red_standard_robot1/navigate_to_pose"
+                      current_goal_id="{goal_id}"
+                      reached_goal_id="{reached_goal_id}"/>
           </RateController>
           <RobotControl stop_gimbal_scan="True"
-                        chassis_spin_vel="0.0"/>
+                        chassis_spin_vel="0.0"
+                        gimbal_big_yaw_vel="1.0"
+                        gimbal_big_yaw_angle="0.785"
+                        follow_gimbal_big="true"
+                        chassis_vel_multi="1.0"
+                        stop_chassis_vel_multi="True"
+                        track_status="false"
+                        perception_status="True"/>
         </ReactiveSequence>
       </WhileDoElse>
     </ReactiveSequence>
@@ -166,19 +199,35 @@
     <Decorator ID="RateController">
       <input_port name="hz">Rate</input_port>
     </Decorator>
-    <Action ID="RobotControl"
-            editable="true">
+    <Action ID="RobotControl">
       <input_port name="stop_gimbal_scan"
                   default="True"/>
       <input_port name="chassis_spin_vel"
-                  default="False"/>
+                  default="0.0"/>
+      <input_port name="gimbal_big_yaw_vel"
+                  default="1.0"/>
+      <input_port name="gimbal_big_yaw_angle"
+                  default="0.785"/>
+      <input_port name="follow_gimbal_big"
+                  default="true"/>
+      <input_port name="chassis_vel_multi"
+                  default="1.0"/>
+      <input_port name="stop_chassis_vel_multi"
+                  default="True"/>
+      <input_port name="track_status"
+                  default="false"/>
+      <input_port name="perception_status"
+                  default="True"/>
     </Action>
-    <Action ID="SendGoal"
-            editable="true">
+    <Action ID="SendGoal">
       <input_port name="goal_pose"
-                  default="0;0;0; 0;0;0;1"/>
+                  default="{best_goal}"/>
       <input_port name="action_name"
-                  default="/red_standard_robot1/navigate_to_pose"/>
+                  default="/navigate_to_pose"/>
+      <input_port name="current_goal_id"
+                  default="{goal_id}"/>
+      <output_port name="reached_goal_id"
+                   default="{reached_goal_id}"/>
     </Action>
     <Action ID="SubAllRobotHP"
             editable="true">

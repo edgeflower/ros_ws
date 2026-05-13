@@ -4,11 +4,11 @@
 #include "behaviortree_ros2/bt_action_node.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
+#include <behaviortree_cpp/basic_types.h>
 #include <map>
 #include <string>
 #include <mutex>
 #include <rclcpp/time.hpp>
-
 namespace rm_behavior_tree
 {
 
@@ -28,7 +28,9 @@ public:
       // 停滞检测参数
       BT::InputPort<double>("stall_threshold", 0.2, "距离变化阈值(m)，小于此值视为停滞"),
       BT::InputPort<double>("stall_check_interval", 2.0, "停滞检测间隔(s)"),
-      BT::InputPort<double>("min_distance_for_stall", 0.5, "启用停滞检测的最小距离(m)")
+      BT::InputPort<double>("min_distance_for_stall", 0.5, "启用停滞检测的最小距离(m)"),
+      BT::OutputPort<geometry_msgs::msg::PoseStamped>("out_robot_pose")
+
     };
   }
 
@@ -60,6 +62,7 @@ private:
   double stall_threshold_{0.05};
   double stall_check_interval_{2.0};
   double min_distance_for_stall_{0.5};
+  geometry_msgs::msg::PoseStamped out_goal_;
 };
 
 }  // namespace rm_behavior_tree

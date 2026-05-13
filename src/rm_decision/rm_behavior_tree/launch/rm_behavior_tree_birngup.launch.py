@@ -20,7 +20,7 @@ def generate_launch_description():
     
     style_cmd = DeclareLaunchArgument(
             'style',
-            default_value="follow", # attack_robot  defense_robot  test1 test2 test3  demo_multi_nav  demo_patrol_loop
+            default_value="RMUL2026_fang", # attack_robot  defense_robot  test1 test2 test3  demo_multi_nav  demo_patrol_loop follow
             description="选取哪一个进攻防御方式  map1  test0	test test2	rmul2025_01 test3 "
         )
 

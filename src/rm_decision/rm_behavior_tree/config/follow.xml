@@ -7,8 +7,8 @@
         <SubArmors topic_name="/target_tracking"
                    armors="{armors}"/>
         <EnemyPositionFilter enemy_position="{armors}"
-                             alpha="0.0"
-                             max_distance="3.5"
+                             alpha="0.2"
+                             max_distance="1.0"
                              history_size="7"
                              zero_threshold="0.1"
                              min_output_interval="0.1"
@@ -23,8 +23,7 @@
                               current_confidence="{current_confidence}"
                               hysteresis_state="{hysteresis_state}"/>
       </ReactiveSequence>
-      <GetLocation topic_name="lidar_odometry"
-                   robot_location="{robot_pose}"/>
+      <GetCurrentLocation current_location="{robot_pose}"/>
       <ReactiveFallback name="BehaviorSelector">
         <ReactiveSequence name="AttackEnemy">
           <CheckHysteresisState state="{hysteresis_state}"
@@ -32,7 +31,7 @@
           <ArmorToGoal target_message="{filtered_target}"
                        robot_pose="{robot_pose}"
                        offset_distance="2.0"
-                       predict_time="0.0"
+                       predict_time="0.5"
                        max_chase_distance="10.0"
                        goal_pose="{attack_goal}"/>
           <ChaseGoal goal_pose="{attack_goal}"
@@ -133,11 +132,9 @@
       <output_port name="filtered_position"
                    default="{filtered_position}"/>
     </Action>
-    <Action ID="GetLocation"
+    <Action ID="GetCurrentLocation"
             editable="true">
-      <input_port name="topic_name"
-                  default="/red_standard_robot1/lidar_odometry"/>
-      <output_port name="robot_location"
+      <output_port name="current_location"
                    default="{current_location}"/>
     </Action>
     <Action ID="HoldPosition">
@@ -164,7 +161,8 @@
       <output_port name="reached_goal_id"
                    default="{reached_goal_id}"/>
     </Action>
-    <Action ID="SubArmors">
+    <Action ID="SubArmors"
+            editable="true">
       <input_port name="topic_name"
                   default="/detector/armors"/>
       <output_port name="armors"

@@ -34,6 +34,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetSentryPosture.srv"
   "msg/RFIDParse.msg"
   "msg/EnemyLocation.msg"
+  "msg/EnemyForbiddenArea.msg"
+  "msg/RobotAreaStatus.msg"
+  "msg/SentryDecision.msg"
 
   DEPENDENCIES
     std_msgs

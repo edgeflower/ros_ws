@@ -59,8 +59,10 @@
                    default="{wp_idx}"/>
     </Action>
     <Action ID="NextWaypoint">
-      <inout_port name="wp_idx"/>
-      <input_port name="total_waypoints"/>
+      <inout_port name="wp_idx"
+                  default="{wp_idx}"/>
+      <input_port name="total_waypoints"
+                  default="{total_wp}"/>
     </Action>
     <Action ID="PubNav2Goal">
       <input_port name="goal_pose"/>

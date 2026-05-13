@@ -64,10 +64,9 @@ bool SendGoalAction::setGoal(nav2_msgs::action::NavigateToPose::Goal & goal)
     has_last_goal_ = true;
 
     goal.pose = new_goal;
-    goal.pose.header.frame_id = "map";
+    goal.pose.header.frame_id = new_goal.header.frame_id; //有时候发送的是 gimbal_yaw 坐标系下的，而不是 map 坐标系下的
     goal.pose.header.stamp = rclcpp::Clock().now();
-
-    RCLCPP_INFO(node_->get_logger(), "发送目标点: x=%.2f, y=%.2f",
+    RCLCPP_INFO(node_->get_logger(), "发送目标点: x=%.2f, y=%.2f ",
                 goal.pose.pose.position.x, goal.pose.pose.position.y);
 
     RCLCPP_DEBUG(node_->get_logger(),"Goal_pose:[ X :%f, Y:%f", goal.pose.pose.position.x, goal.pose.pose.position.y);
