@@ -32,6 +32,8 @@ def generate_launch_description():
     launch_dir = os.path.join(bringup_dir, "launch")
     odin_driver_dir = get_package_share_directory("odin_ros_driver")
     robot_area_detector_dir = get_package_share_directory("robot_area_detector")
+    utility_ai_node_dir = get_package_share_directory("rm_sentry_decision")
+    rm_set_posture_dir = get_package_share_directory("rm_set_posture")
     
     # Create the launch configuration variables
     namespace = LaunchConfiguration("namespace")
@@ -232,6 +234,17 @@ def generate_launch_description():
         ),
         # 如果需要传递参数给 robot area detector，可以在这里添加
     )
+    
+    start_utility_ai_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(utility_ai_node_dir, "launch", "utility_ai.launch.py")
+        ),
+    )
+    start_set_posture_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(rm_set_posture_dir, "launch", "set_posture.launch.py")
+        ),
+    )
 
         
     foxglove_bridge = Node(
@@ -253,13 +266,16 @@ def generate_launch_description():
     # 2. 定义需要录制的话题列表
     # 技巧：录制 /tf_static 和 /rosout 对后期复盘非常有用
     topics_to_record = [
-        '/livox/lidar',
-        '/livox/imu',
         '/game_status',
         "/robot_status",
         '/tf',
         '/tf_static',
-        '/cmd_vel_chassis'
+        '/cmd_vel_chassis',
+        '/enemy_marker',
+        '/robot_area_detector/markers',
+        '/robot_area_status',
+        '/sentry_decision',
+        '/target_tracking'
     ]
 
     # 3. 构建 ros2 bag record 命令
@@ -311,7 +327,9 @@ def generate_launch_description():
 
     # ld.add_action(rviz_cmd)
     ld.add_action(foxglove_bridge)
-    # ld.add_action(start_robot_area_detector_cmd) # 启动机器人区域检测节点
+    ld.add_action(start_robot_area_detector_cmd) # 启动机器人区域检测节点
+    ld.add_action(start_utility_ai_node) # 启动 Utility AI 决策节点
+    # ld.add_action(start_set_posture_cmd) # 启动 RM Set Posture 节点
     #ld.add_action(bag_recorder)
 
     return ld

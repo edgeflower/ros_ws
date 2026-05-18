@@ -169,12 +169,21 @@
                        predict_time="0.5"
                        max_chase_distance="10.0"
                        goal_pose="{attack_goal}"/>
-          <ChaseGoal goal_pose="{attack_goal}"
-                     action_name="/navigate_to_pose"
-                     min_goal_distance="0.3"
-                     max_resend_interval="2.0"
-                     chase_timeout="15.0"
-                     server_timeout="5.0"/>
+          <ReactiveFallback name="GoOutpostUntilNear">
+            <ChaseGoal goal_pose="{attack_goal}"
+                       action_name="/navigate_to_pose"
+                       min_goal_distance="0.3"
+                       max_resend_interval="2.0"
+                       chase_timeout="15.0"
+                       server_timeout="5.0"
+                       stop_distance="1.5"/>
+            <Sequence>
+              <WaitUntilReached goal_pose="{attack_goal}"
+                                tolerance="2.0"/>
+              <CancelNav2Goal action_name="/navigate_to_pose"
+                              timeout="1.0"/>
+            </Sequence>
+          </ReactiveFallback>
         </ReactiveSequence>
         <ReactiveSequence>
           <ScriptCondition code="combat_mode == true"/>
@@ -194,10 +203,18 @@
                         robot_pose="{robot_pose}"
                         held_goal="{hold_goal}"
                         is_holding="{is_holding}"/>
-          <SendGoal goal_pose="{hold_goal}"
-                    action_name="/navigate_to_pose"
-                    current_goal_id="-2"
-                    reached_goal_id="{hold_reached_goal_id}"/>
+          <ReactiveFallback name="GoOutpostUntilNear">
+            <SendGoal goal_pose="{hold_goal}"
+                      action_name="/navigate_to_pose"
+                      current_goal_id="-2"
+                      reached_goal_id="{hold_reached_goal_id}"/>
+            <Sequence>
+              <WaitUntilReached goal_pose="{hold_goal}"
+                                tolerance="2.0"/>
+              <CancelNav2Goal action_name="/navigate_to_pose"
+                              timeout="1.0"/>
+            </Sequence>
+          </ReactiveFallback>
         </ReactiveSequence>
         <ReactiveSequence>
           <CheckHysteresisState state="{hysteresis_state}"
@@ -256,7 +273,7 @@
                              wait_times="{wait_times}"
                              total_waypoints="{total_wp}"
                              wp_idx="{wp_idx}"/>
-              <Sequence>
+              <ReactiveSequence>
                 <GetCurrentWaypoint waypoints="{waypoints}"
                                     wait_times="{wait_times}"
                                     wp_idx="{wp_idx}"
@@ -267,7 +284,7 @@
                              min_pub_interval_ms="500"/>
                 <WaitUntilReached goal_pose="{current_goal}"
                                   tolerance="0.5"/>
-              </Sequence>
+              </ReactiveSequence>
             </Sequence>
           </WhileDoElse>
         </ReactiveSequence>
@@ -310,6 +327,8 @@
                   default="15.0"/>
       <input_port name="server_timeout"
                   default="5.0"/>
+      <input_port name="stop_distance"
+                  default="1.5"/>
     </Action>
     <Condition ID="CheckHysteresisState">
       <input_port name="state"

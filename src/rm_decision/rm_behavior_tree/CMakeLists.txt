@@ -116,6 +116,10 @@ ament_auto_add_library(sub_all_robot_hp SHARED
   plugins/action/sub_all_robot_hp.cpp)
 add_target_dependencies(sub_all_robot_hp)
 
+ament_auto_add_library(sub_self_robot_hp SHARED
+  plugins/action/sub_self_robot_hp.cpp)
+add_target_dependencies(sub_self_robot_hp)
+
 ament_auto_add_library(sub_game_status SHARED
   plugins/action/sub_game_status.cpp)
 add_target_dependencies(sub_game_status)

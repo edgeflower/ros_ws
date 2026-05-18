@@ -24,7 +24,7 @@ public:
                 BT::InputPort<float>("chassis_vel_multi"),     // 底盘速率倍增
                 BT::InputPort<bool>("stop_chassis_vel_multi"), // 是否停止底盘速率倍增
                 BT::InputPort<bool>("track_status"),           // 是否启动履带
-                BT::InputPort<bool>("perception_status")       // 大云台是否跟随全向感知
+                BT::InputPort<bool>("perception_status")       // 大云台是否跟随全向感知 是否屏蔽全向感知
       };
      }
 private:

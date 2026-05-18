@@ -142,6 +142,7 @@ private:
             "sub_all_enemy_location",
             "sub_robot_area_status",
             "sub_sentry_decision",
+            "sub_self_robot_hp",
         };
 
         const std::vector<std::string> bt_plugins_libs = {

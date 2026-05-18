@@ -57,5 +57,8 @@ mcap_bag/
 test_gai.pgm
 test_gai.yaml
 src/mid360_chunk_cloud/
+src/control_panel/control_panel/__pycache__/
+new_1.csv
+new_1_4.csv
 
 

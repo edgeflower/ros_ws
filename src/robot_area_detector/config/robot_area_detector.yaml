@@ -14,5 +14,5 @@ robot_area_detector_node:
     target_area_type: ""
     target_area_name: ""
 
-    publish_marker: true
+    publish_marker: false
     print_debug: false

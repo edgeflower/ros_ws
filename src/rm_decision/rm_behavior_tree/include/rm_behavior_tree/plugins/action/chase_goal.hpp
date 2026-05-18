@@ -33,7 +33,8 @@ public:
             BT::InputPort<double>("min_goal_distance", 0.3, "Min goal change to trigger resend (m)"),
             BT::InputPort<double>("max_resend_interval", 2.0, "Max time between resends (s)"),
             BT::InputPort<double>("chase_timeout", 15.0, "Max chase duration (s)"),
-            BT::InputPort<double>("server_timeout", 5.0, "Goal response timeout (s)")
+            BT::InputPort<double>("server_timeout", 5.0, "Goal response timeout (s)"),
+            BT::InputPort<double>("stop_distance", 0.0, "Stop chasing when goal is within this distance (m, 0=disabled)")
         };
     }
 
@@ -81,6 +82,7 @@ private:
     double max_resend_interval_ = 2.0;
     double chase_timeout_ = 15.0;
     double server_timeout_ = 5.0;
+    double stop_distance_ = 0.0;
 
     // ── 内部方法 ──────────────────────────────────────────────
     bool ensureActionClient();

@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <mutex>
 
 #include "behaviortree_cpp/action_node.h"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -143,11 +144,13 @@ public:
   WaitUntilReached(const std::string & name, const BT::NodeConfiguration & config)
       : BT::StatefulActionNode(name, config)
   {
-    node_ = std::make_shared<rclcpp::Node>("wait_until_reached");
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_->get_clock());
-    tf_listener_ =
-        std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, node_);
-    std::thread([this]() { rclcpp::spin(node_); }).detach();
+    std::call_once(init_flag_, []() {
+      node_ = std::make_shared<rclcpp::Node>("wait_until_reached");
+      tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_->get_clock());
+      tf_listener_ =
+          std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, node_);
+      std::thread([]() { rclcpp::spin(node_); }).detach();
+    });
   }
 
   static BT::PortsList providedPorts()
@@ -209,9 +212,10 @@ public:
   }
 
 private:
-  std::shared_ptr<rclcpp::Node> node_;
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  inline static std::shared_ptr<rclcpp::Node> node_ = nullptr;
+  inline static std::shared_ptr<tf2_ros::Buffer> tf_buffer_ = nullptr;
+  inline static std::shared_ptr<tf2_ros::TransformListener> tf_listener_ = nullptr;
+  inline static std::once_flag init_flag_;
   geometry_msgs::msg::PoseStamped goal_;
   double tolerance_ = 0.5;
 };

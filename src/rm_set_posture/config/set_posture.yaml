@@ -1,0 +1,4 @@
+set_posture_node:
+  ros__parameters:
+    service_name: "/set_sentry_posture"
+    override_mode: false

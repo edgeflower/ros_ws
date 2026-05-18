@@ -37,6 +37,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EnemyForbiddenArea.msg"
   "msg/RobotAreaStatus.msg"
   "msg/SentryDecision.msg"
+  "msg/SelfRobotHP.msg"
 
   DEPENDENCIES
     std_msgs

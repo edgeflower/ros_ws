@@ -98,12 +98,22 @@ BT::NodeStatus ChaseGoalAction::onStart()
     getInput("max_resend_interval", max_resend_interval_);
     getInput("chase_timeout", chase_timeout_);
     getInput("server_timeout", server_timeout_);
+    getInput("stop_distance", stop_distance_);
 
     // 获取初始目标
     auto goal_res = getInput<geometry_msgs::msg::PoseStamped>("goal_pose");
     if (!goal_res.has_value()) {
         RCLCPP_WARN(node_->get_logger(), "ChaseGoal: no goal_pose provided");
         return BT::NodeStatus::FAILURE;
+    }
+
+    // 近距离检查：敌人在 stop_distance 内直接 SUCCESS，不发 goal
+    if (stop_distance_ > 0.0) {
+        double dx = goal_res.value().pose.position.x;
+        double dy = goal_res.value().pose.position.y;
+        if (std::sqrt(dx * dx + dy * dy) <= stop_distance_) {
+            return BT::NodeStatus::SUCCESS;
+        }
     }
 
     if (!ensureActionClient()) {
@@ -135,7 +145,20 @@ BT::NodeStatus ChaseGoalAction::onRunning()
 
     auto now = node_->now();
 
-    // ── 1. 追击超时检查 ──
+    // ── 1. 近距离检查 ──
+    if (stop_distance_ > 0.0) {
+        auto goal_res = getInput<geometry_msgs::msg::PoseStamped>("goal_pose");
+        if (goal_res.has_value()) {
+            double dx = goal_res.value().pose.position.x;
+            double dy = goal_res.value().pose.position.y;
+            if (std::sqrt(dx * dx + dy * dy) <= stop_distance_) {
+                cancelCurrentGoal();
+                return BT::NodeStatus::SUCCESS;
+            }
+        }
+    }
+
+    // ── 2. 追击超时检查 ──
     if ((now - chase_start_time_).seconds() > chase_timeout_) {
         RCLCPP_WARN(node_->get_logger(),
             "Chase timeout (%.1fs > %.1fs)", (now - chase_start_time_).seconds(), chase_timeout_);
@@ -143,7 +166,7 @@ BT::NodeStatus ChaseGoalAction::onRunning()
         return BT::NodeStatus::FAILURE;
     }
 
-    // ── 2. 检查 action result ──
+    // ── 3. 检查 action result ──
     // 加锁读取 result_，因为后台线程的 result_callback 可能正在写入
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -166,7 +189,7 @@ BT::NodeStatus ChaseGoalAction::onRunning()
         }
     } // 释放锁
 
-    // ── 3. 等待 goal response 超时检查 ──
+    // ── 4. 等待 goal response 超时检查 ──
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
 
@@ -181,7 +204,7 @@ BT::NodeStatus ChaseGoalAction::onRunning()
         }
     } // 释放锁
 
-    // ── 4. 判断是否需要更新目标 ──
+    // ── 5. 判断是否需要更新目标 ──
     auto goal_res = getInput<geometry_msgs::msg::PoseStamped>("goal_pose");
     if (!goal_res.has_value()) {
         return BT::NodeStatus::RUNNING;
@@ -239,6 +262,18 @@ bool ChaseGoalAction::sendGoal(const geometry_msgs::msg::PoseStamped &goal)
     goal_msg.pose = goal;
     goal_msg.pose.header.frame_id = "gimbal_yaw"; // gimbal_yaw   已在armor_to_goal 中赋值 手动加上
     goal_msg.pose.header.stamp = node_->now();
+
+    // 将目标点缩放到距敌人 stop_distance_ 处（gimbal_yaw 原点即机器人自身）
+    if (stop_distance_ > 0.0) {
+        double dx = goal_msg.pose.pose.position.x;
+        double dy = goal_msg.pose.pose.position.y;
+        double dist = std::sqrt(dx * dx + dy * dy);
+        if (dist > stop_distance_) {
+            double scale = (dist - stop_distance_) / dist;
+            goal_msg.pose.pose.position.x *= scale;
+            goal_msg.pose.pose.position.y *= scale;
+        }
+    }
 
     auto options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
 

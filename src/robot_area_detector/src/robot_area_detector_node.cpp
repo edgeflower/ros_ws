@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <tf2_ros/buffer.h>
@@ -9,6 +10,7 @@
 #include <filesystem>
 
 #include "robot_area_detector/msg/robot_area_status.hpp"
+#include <rm_decision_interfaces/msg/robot_area_status.hpp>
 
 namespace robot_area_detector {
 
@@ -303,7 +305,8 @@ visualization_msgs::msg::MarkerArray createAreaMarkers(
 
 class RobotAreaDetectorNode : public rclcpp::Node {
  public:
-  RobotAreaDetectorNode() : Node("robot_area_detector_node") {
+  explicit RobotAreaDetectorNode(const rclcpp::NodeOptions& options)
+      : Node("robot_area_detector_node", options) {
     // 声明参数
     this->declare_parameter("areas_yaml",
         "/home/lu/ros_ws/src/polygon_manager/config/areas.yaml");
@@ -347,7 +350,7 @@ class RobotAreaDetectorNode : public rclcpp::Node {
     std::string status_topic = this->get_parameter("status_topic").as_string();
     std::string marker_topic = this->get_parameter("marker_topic").as_string();
 
-    status_pub_ = this->create_publisher<msg::RobotAreaStatus>(status_topic, 10);
+    status_pub_ = this->create_publisher<rm_decision_interfaces::msg::RobotAreaStatus>(status_topic, 10);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
         marker_topic, 10);
 
@@ -386,7 +389,7 @@ class RobotAreaDetectorNode : public rclcpp::Node {
     }
 
     // 构建消息
-    msg::RobotAreaStatus status;
+    rm_decision_interfaces::msg::RobotAreaStatus status;
     status.header.stamp = now;
     status.header.frame_id = map_frame_;
     status.robot_x = robot_x;
@@ -451,7 +454,7 @@ class RobotAreaDetectorNode : public rclcpp::Node {
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  rclcpp::Publisher<msg::RobotAreaStatus>::SharedPtr status_pub_;
+  rclcpp::Publisher<rm_decision_interfaces::msg::RobotAreaStatus>::SharedPtr status_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
@@ -466,9 +469,4 @@ class RobotAreaDetectorNode : public rclcpp::Node {
 
 }  // namespace robot_area_detector
 
-int main(int argc, char* argv[]) {
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<robot_area_detector::RobotAreaDetectorNode>());
-  rclcpp::shutdown();
-  return 0;
-}
+RCLCPP_COMPONENTS_REGISTER_NODE(robot_area_detector::RobotAreaDetectorNode)
