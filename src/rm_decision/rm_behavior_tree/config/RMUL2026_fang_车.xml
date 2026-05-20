@@ -3,13 +3,15 @@
       main_tree_to_execute="BehaviorTree">
   <BehaviorTree ID="BehaviorTree">
     <ReactiveSequence>
+      <SubRobotAreaStatus topic_name="/robot_area_status"
+                          robot_area_status="{robot_area_status}"/>
       <SubRobotStatus topic_name="/robot_status"
                       robot_status="{robot_status}"/>
       <SubGameStatus topic_name="/game_status"
                      game_status="{game_status}"/>
       <SubArmors topic_name="/target_tracking"
                  armors="{armors}"/>
-      <GetLocation topic_name="/chassis_odometry_gt"
+      <GetLocation topic_name="/lidar_odometry"
                    robot_location="{robot_pose}"/>
       <EnemyPositionFilter enemy_position="{armors}"
                            alpha="0.2"
@@ -31,7 +33,7 @@
         <IsGameTime message="{game_status}"
                     game_progress="4"
                     lower_remain_time="0"
-                    higher_remain_time="10000"/>
+                    higher_remain_time="100000"/>
         <IsAttacked message="{robot_status}"/>
       </Fallback>
       <IfThenElse>
@@ -44,13 +46,75 @@
         <Script code="combat_mode := true"/>
         <Script code="combat_mode := false"/>
       </IfThenElse>
+      <IfThenElse>
+        <IsRobotInArea robot_area_status="{robot_area_status}"
+                       target_area_name="central_highland"
+                       target_area_type="protect"/>
+        <Script code="through_mode := true"/>
+        <Script code="through_mode := false"/>
+      </IfThenElse>
+      <IfThenElse>
+        <IsRobotInArea robot_area_status="{robot_area_status}"
+                       target_area_name="bumpy_area"
+                       target_area_type="protect"/>
+        <Script code="in_bumpy_area := true"/>
+        <Script code="in_bumpy_area := false"/>
+      </IfThenElse>
+      <IfThenElse>
+        <Inverter>
+          <IsStatusOK message="{robot_status}"
+                      hp_threshold="160"
+                      heat_threshold="0"
+                      shot_threshold="0"/>
+        </Inverter>
+        <Script code="status_bad := true"/>
+        <Script code="status_bad := false"/>
+      </IfThenElse>
       <ReactiveFallback name="ModeSelector">
+        <ReactiveSequence name="BumpyRoadProtection">
+          <ScriptCondition code="in_bumpy_area == true &amp;&amp; status_bad == true"/>
+          <IsYawInRange robot_pose="{robot_pose}"
+                        min_yaw_deg="-90.0"
+                        max_yaw_deg="90.0"/>
+          <RobotControl stop_gimbal_scan="True"
+                        chassis_spin_vel="0.0"
+                        gimbal_big_yaw_vel="0.0"
+                        gimbal_big_yaw_angle="0.0"
+                        follow_gimbal_big="true"
+                        chassis_vel_multi="1.0"
+                        stop_chassis_vel_multi="True"
+                        track_status="True"
+                        perception_status="False"/>
+          <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/前哨站.csv"
+                         frame_id="map"
+                         waypoints="{waypoints_target}"
+                         wait_times="{wait_times_target}"
+                         total_waypoints="{total_wp_target}"
+                         wp_idx="{wp_idx_target}"/>
+          <GetCurrentWaypoint waypoints="{waypoints_target}"
+                              wait_times="{wait_times_target}"
+                              wp_idx="{wp_idx_target}"
+                              current_goal="{current_goal_target}"
+                              current_wait_sec="{current_wait_target}"/>
+          <ReactiveFallback name="GoOutpostUntilNear">
+            <Sequence>
+              <WaitUntilReached goal_pose="{current_goal_target}"
+                                tolerance="0.1"/>
+              <CancelNav2Goal action_name="/navigate_to_pose"
+                              timeout="1.0"/>
+            </Sequence>
+            <SendNav2Goal goal_pose="{current_goal_target}"
+                          action_name="/navigate_to_pose"
+                          min_distance="0.25"/>
+          </ReactiveFallback>
+          <Wait duration="5"/>
+        </ReactiveSequence>
         <ReactiveSequence name="GoHomeSequence">
           <Inverter>
             <IsStatusOK message="{robot_status}"
                         hp_threshold="160"
                         heat_threshold="0"
-                        shot_threshold="10"/>
+                        shot_threshold="80"/>
           </Inverter>
           <Sequence name="HomeNavigation">
             <CancelNavigation action_name="/navigate_to_pose"/>
@@ -63,7 +127,7 @@
                           stop_chassis_vel_multi="True"
                           track_status="false"
                           perception_status="True"/>
-            <LoadWaypoints waypoint_file="/home/lu/ros_ws/回家.csv"
+            <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/回家.csv"
                            frame_id="map"
                            waypoints="{waypoints_home}"
                            wait_times="{wait_times_home}"
@@ -108,7 +172,7 @@
                        robot_pose="{robot_pose}"
                        offset_distance="2.0"
                        predict_time="0.5"
-                       max_chase_distance="10.0"
+                       max_chase_distance="5.0"
                        goal_pose="{attack_goal}"/>
           <ChaseGoal goal_pose="{attack_goal}"
                      action_name="/navigate_to_pose"
@@ -142,10 +206,84 @@
                     reached_goal_id="{hold_reached_goal_id}"/>
         </ReactiveSequence>
         <ReactiveSequence name="PatrolSequence">
+          <IsGameTime message="{game_status}"
+                      game_progress="4"
+                      lower_remain_time="240"
+                      higher_remain_time="420"/>
+          <WhileDoElse>
+            <ScriptCondition code="through_mode == true"/>
+            <Sequence>
+              <RobotControl stop_gimbal_scan="True"
+                            chassis_spin_vel="0.0"
+                            gimbal_big_yaw_vel="0.0"
+                            gimbal_big_yaw_angle="0.0"
+                            follow_gimbal_big="False"
+                            chassis_vel_multi="1.0"
+                            stop_chassis_vel_multi="True"
+                            track_status="False"
+                            perception_status="True"/>
+              <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/中央高地巡逻.csv"
+                             frame_id="map"
+                             waypoints="{waypoints_high}"
+                             wait_times="{wait_times_high}"
+                             total_waypoints="{total_wp_high}"
+                             wp_idx="{wp_idx_high}"/>
+              <KeepRunningUntilFailure>
+                <Sequence>
+                  <GetCurrentWaypoint waypoints="{waypoints_high}"
+                                      wait_times="{wait_times_high}"
+                                      wp_idx="{wp_idx_high}"
+                                      current_goal="{current_goal_high}"
+                                      current_wait_sec="{current_wait_sec_high}"/>
+                  <ReactiveSequence>
+                    <PubNav2Goal goal_pose="{current_goal_high}"
+                                 frame_id="map"
+                                 min_pub_interval_ms="500"/>
+                    <WaitUntilReached goal_pose="{current_goal_high}"
+                                      tolerance="0.5"/>
+                  </ReactiveSequence>
+                  <WaitDuration duration_sec="{current_wait_sec_high}"/>
+                  <NextWaypoint wp_idx="{wp_idx_high}"
+                                total_waypoints="{total_wp_high}"/>
+                </Sequence>
+              </KeepRunningUntilFailure>
+            </Sequence>
+            <Sequence>
+              <RobotControl stop_gimbal_scan="True"
+                            chassis_spin_vel="0.0"
+                            gimbal_big_yaw_vel="0.0"
+                            gimbal_big_yaw_angle="0.0"
+                            follow_gimbal_big="true"
+                            chassis_vel_multi="1.0"
+                            stop_chassis_vel_multi="True"
+                            track_status="True"
+                            perception_status="False"/>
+              <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/上中央高地.csv"
+                             frame_id="map"
+                             waypoints="{waypoints}"
+                             wait_times="{wait_times}"
+                             total_waypoints="{total_wp}"
+                             wp_idx="{wp_idx}"/>
+              <ReactiveSequence>
+                <GetCurrentWaypoint waypoints="{waypoints}"
+                                    wait_times="{wait_times}"
+                                    wp_idx="{wp_idx}"
+                                    current_goal="{current_goal}"
+                                    current_wait_sec="{current_wait_sec}"/>
+                <PubNav2Goal goal_pose="{current_goal}"
+                             frame_id="map"
+                             min_pub_interval_ms="500"/>
+                <WaitUntilReached goal_pose="{current_goal}"
+                                  tolerance="0.5"/>
+              </ReactiveSequence>
+            </Sequence>
+          </WhileDoElse>
+        </ReactiveSequence>
+        <ReactiveSequence name="PatrolSequence">
           <CheckHysteresisState state="{hysteresis_state}"
                                 expected_state="LOW"/>
           <Sequence name="PatrolNavigation">
-            <LoadWaypoints waypoint_file="/home/lu/ros_ws/自己半场巡逻.csv"
+            <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/自己半场巡逻.csv"
                            frame_id="map"
                            waypoints="{waypoints_patrol}"
                            wait_times="{wait_times_patrol}"
@@ -191,6 +329,12 @@
                   default="10.0"/>
       <output_port name="goal_pose"
                    default="{goal}"/>
+    </Action>
+    <Action ID="CancelNav2Goal">
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+      <input_port name="timeout"
+                  default="1.0"/>
     </Action>
     <Action ID="CancelNavigation">
       <input_port name="action_name"
@@ -301,6 +445,13 @@
       <input_port name="higher_remain_time"
                   default="300"/>
     </Condition>
+    <Condition ID="IsRobotInArea"
+               editable="true">
+      <input_port name="robot_area_status"
+                  default="{robot_area_status}"/>
+      <input_port name="target_area_name"/>
+      <input_port name="target_area_type"/>
+    </Condition>
     <Condition ID="IsStatusOK"
                editable="true">
       <input_port name="message"
@@ -311,6 +462,14 @@
                   default="350"/>
       <input_port name="shot_threshold"
                   default="0"/>
+    </Condition>
+    <Condition ID="IsYawInRange">
+      <input_port name="robot_pose"
+                  default="{robot_pose}"/>
+      <input_port name="min_yaw_deg"
+                  default="-180.0"/>
+      <input_port name="max_yaw_deg"
+                  default="180.0"/>
     </Condition>
     <Action ID="LoadWaypoints">
       <input_port name="waypoint_file"/>
@@ -367,6 +526,13 @@
       <output_port name="reached_goal_id"
                    default="{reached_goal_id}"/>
     </Action>
+    <Action ID="SendNav2Goal">
+      <input_port name="goal_pose"/>
+      <input_port name="action_name"
+                  default="/navigate_to_pose"/>
+      <input_port name="min_distance"
+                  default="0.5"/>
+    </Action>
     <Action ID="SubArmors"
             editable="true">
       <input_port name="topic_name"
@@ -380,6 +546,13 @@
                   default="game_status"/>
       <output_port name="game_status"
                    default="{game_status}"/>
+    </Action>
+    <Action ID="SubRobotAreaStatus"
+            editable="true">
+      <input_port name="topic_name"
+                  default="/area_status"/>
+      <output_port name="robot_area_status"
+                   default="{robot_area_status}"/>
     </Action>
     <Action ID="SubRobotStatus"
             editable="true">

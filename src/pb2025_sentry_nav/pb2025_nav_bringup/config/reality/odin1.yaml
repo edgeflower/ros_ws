@@ -693,7 +693,7 @@ local_costmap:
           - intensity_voxel_layer      # 双向强度过滤 + 3D 体素标记
           # - voxel_layer_intensity      # Raytrace freespace 清除
           # - stvl_near_voxel_layer      # 近处stvl 维护
-          - stvl_far_voxel_layer       # 远处stvl 维护
+          # - stvl_far_voxel_layer       # 远处stvl 维护
           - inflation_layer            # 膨胀
           
 
@@ -761,62 +761,62 @@ local_costmap:
         #     raytrace_max_range: 5.0
         # #     raytrace_min_range: 0.2
 
-        stvl_far_voxel_layer:                                                                                                                                                                       
-          plugin: "dynamic_spatio_temporal_layer::DynamicSpatioTemporalLayer"                                                                                                                       
-          enabled: true                                                                                                                                                                             
+        # stvl_far_voxel_layer:                                                                                                                                                                       
+        #   plugin: "dynamic_spatio_temporal_layer::DynamicSpatioTemporalLayer"                                                                                                                       
+        #   enabled: true                                                                                                                                                                             
                                                                                                                                                                                               
-          # ── 父类 STVL 基础参数 ─────────────────────────────                                                                                                                                     
-          voxel_size: 0.05                                                                                                                                                                          
-          decay_model: 0                    # 必须是 LINEAR(0)，dual-buffer 依赖线性模型                                                                                                            
-          voxel_decay: 3.0                  # ⚠️  必须等于 near_decay                                                                                                                                
-          voxel_distance_decay: -1.0        # 禁用，我们自己做距离分段                                                                                                                              
-          track_unknown_space: true                                                                                                                                                                 
-          observation_persistence: 0.0                                                                                                                                                              
-          max_obstacle_height: 1.0                                                                                                                                                                  
-          mark_threshold: 1                                                                                                                                                                         
-          update_footprint_enabled: true                                                                                                                                                            
-          combination_method: 1                                                                                                                                                                     
-          obstacle_range: 6.0                                                                                                                                                                       
-          publish_voxel_map: false                                                                                                                                                                  
-          transform_tolerance: 0.2                                                                                                                                                                  
-          mapping_mode: false                                 
-          map_save_duration: 60.0                                                                                                                                                                   
+        #   # ── 父类 STVL 基础参数 ─────────────────────────────                                                                                                                                     
+        #   voxel_size: 0.05                                                                                                                                                                          
+        #   decay_model: 0                    # 必须是 LINEAR(0)，dual-buffer 依赖线性模型                                                                                                            
+        #   voxel_decay: 3.0                  # ⚠️  必须等于 near_decay                                                                                                                                
+        #   voxel_distance_decay: -1.0        # 禁用，我们自己做距离分段                                                                                                                              
+        #   track_unknown_space: true                                                                                                                                                                 
+        #   observation_persistence: 0.0                                                                                                                                                              
+        #   max_obstacle_height: 1.0                                                                                                                                                                  
+        #   mark_threshold: 1                                                                                                                                                                         
+        #   update_footprint_enabled: true                                                                                                                                                            
+        #   combination_method: 1                                                                                                                                                                     
+        #   obstacle_range: 6.0                                                                                                                                                                       
+        #   publish_voxel_map: false                                                                                                                                                                  
+        #   transform_tolerance: 0.2                                                                                                                                                                  
+        #   mapping_mode: false                                 
+        #   map_save_duration: 60.0                                                                                                                                                                   
    
-          # ── observation_sources：只用于 clearing，不用于 marking ──                                                                                                                              
-          #    marking 由我们的插件自己处理                   
-          observation_sources: livox_clearing                                                                                                                                                       
-          livox_clearing:                                                                                                                                                                           
-            data_type: PointCloud2                                                                                                                                                                  
-            topic: /mid360_chunked_cloud                                                                                                                                                        
-            transport_type: "raw"                                                                                                                                                                   
-            marking: false                   # ← 关键！关闭 marking，由我们的插件负责                                                                                                               
-            clearing: true                   # ← 保留 frustum raytrace 清除                                                                                                                         
-            obstacle_range: 8.0                                                                                                                                                                     
-            raytrace_range: 9.0                                                                                                                                                                     
-            min_obstacle_height: 0.1                                                                                                                                                                
-            max_obstacle_height: 1.0                                                                                                                                                                
-            expected_update_rate: 0.0                                                                                                                                                               
-            observation_persistence: 0.0                                                                                                                                                            
-            inf_is_valid: false                                                                                                                                                                     
-            clear_after_reading: true                                                                                                                                                               
-            filter: "voxel"                                                                                                                                                                         
-            voxel_min_points: 0                                                                                                                                                                     
-            model_type: 1                                                                                                                                                                           
-            vertical_fov_angle: 1.03                                                                                                                                                                
-            vertical_fov_offset: -0.3927                                                                                                                                                            
-            horizontal_fov_angle: 6.28                                                                                                                                                              
+        #   # ── observation_sources：只用于 clearing，不用于 marking ──                                                                                                                              
+        #   #    marking 由我们的插件自己处理                   
+        #   observation_sources: livox_clearing                                                                                                                                                       
+        #   livox_clearing:                                                                                                                                                                           
+        #     data_type: PointCloud2                                                                                                                                                                  
+        #     topic: /mid360_chunked_cloud                                                                                                                                                        
+        #     transport_type: "raw"                                                                                                                                                                   
+        #     marking: false                   # ← 关键！关闭 marking，由我们的插件负责                                                                                                               
+        #     clearing: true                   # ← 保留 frustum raytrace 清除                                                                                                                         
+        #     obstacle_range: 8.0                                                                                                                                                                     
+        #     raytrace_range: 9.0                                                                                                                                                                     
+        #     min_obstacle_height: 0.1                                                                                                                                                                
+        #     max_obstacle_height: 1.0                                                                                                                                                                
+        #     expected_update_rate: 0.0                                                                                                                                                               
+        #     observation_persistence: 0.0                                                                                                                                                            
+        #     inf_is_valid: false                                                                                                                                                                     
+        #     clear_after_reading: true                                                                                                                                                               
+        #     filter: "voxel"                                                                                                                                                                         
+        #     voxel_min_points: 0                                                                                                                                                                     
+        #     model_type: 1                                                                                                                                                                           
+        #     vertical_fov_angle: 1.03                                                                                                                                                                
+        #     vertical_fov_offset: -0.3927                                                                                                                                                            
+        #     horizontal_fov_angle: 6.28                                                                                                                                                              
                                                                                                                                                                                               
-          # ── 我们的参数 ──────────────────────────────────────
-          min_threshold: 0.55                                                                                                                                    
-          near_decay: 3.0                   # 近距离障碍存活 3s                                                                                                                                     
-          far_decay: 1.5                    # 远距离障碍存活 1.5s                                                                                                                                   
-          near_threshold: 1.5               # 近/远分界 (m)                                                                                                                                         
-          far_threshold: 8.0                # 最大距离，超出丢弃                                                                                                                                    
-          base_min_z: 0.15                  # 高度下限 (相对 odom Z)  0.1      -0.4                                                                                                                  
-          base_max_z: 0.20                   # 高度上限       0.3             -0.3                                                                                                                        
-          odom_timeout: 0.5                                                                                                                                                                         
-          odom_topic: "/odin1/odometry_highfreq"                                                                                                                                                             
-          pointcloud_topic: "/livox/lidar"  # 我们的 marking 用原始点云                                                                                                                             
+        #   # ── 我们的参数 ──────────────────────────────────────
+        #   min_threshold: 0.55                                                                                                                                    
+        #   near_decay: 3.0                   # 近距离障碍存活 3s                                                                                                                                     
+        #   far_decay: 1.5                    # 远距离障碍存活 1.5s                                                                                                                                   
+        #   near_threshold: 1.5               # 近/远分界 (m)                                                                                                                                         
+        #   far_threshold: 8.0                # 最大距离，超出丢弃                                                                                                                                    
+        #   base_min_z: 0.15                  # 高度下限 (相对 odom Z)  0.1      -0.4                                                                                                                  
+        #   base_max_z: 0.20                   # 高度上限       0.3             -0.3                                                                                                                        
+        #   odom_timeout: 0.5                                                                                                                                                                         
+        #   odom_topic: "/odin1/odometry_highfreq"                                                                                                                                                             
+        #   pointcloud_topic: "/livox/lidar"  # 我们的 marking 用原始点云                                                                                                                             
                                                                   
 
 

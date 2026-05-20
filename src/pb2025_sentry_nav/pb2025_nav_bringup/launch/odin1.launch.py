@@ -318,7 +318,7 @@ def generate_launch_description():
 
     # Add the actions to launch all of the navigation nodes
     ld.add_action(start_robot_state_publisher_cmd)
-    ld.add_action(start_livox_ros_driver2_node)
+    #ld.add_action(start_livox_ros_driver2_node)
     # ld.add_action(start_cloud_filter_cmd)
     # ld.add_action(start_cloud_converter_cmd) # 这个节点比较轻量，放在前面启动，确保点云数据尽快发布出来
     ld.add_action(start_odin_driver_cmd)

@@ -60,10 +60,11 @@ BT::NodeStatus EnemyPositionFilter::tick()
     if (!getInput("enemy_position", enemy_position)) {
         // 没有输入数据，如果已有滤波值则继续使用
         if (initialized_) {
-            // 输出上次的有效目标 (保持元数据)
+            // 输出上次的有效目标 (保持元数据)，但重新计算衰减后的confidence
+            filtered_target_.confidence = calculateDecayedConfidence();
             setOutput("filtered_position", filtered_target_);
             RCLCPP_DEBUG(rclcpp::get_logger("EnemyPositionFilter"),
-                "No input, using last valid target");
+                "No input, using last valid target with decayed conf=%.2f", filtered_target_.confidence);
             return BT::NodeStatus::SUCCESS;
         }
         // 数据清洗节点：始终返回SUCCESS，输出confidence=0.0让confidence_hysteresis判断
@@ -78,9 +79,11 @@ BT::NodeStatus EnemyPositionFilter::tick()
         !std::isfinite(enemy_position.position.y) ) {
         // 无效值，但如果有历史值则继续使用
         if (initialized_) {
+            filtered_target_.confidence = calculateDecayedConfidence();
             setOutput("filtered_position", filtered_target_);
             RCLCPP_DEBUG(rclcpp::get_logger("EnemyPositionFilter"),
-                "Invalid position (NaN/Inf), using last valid target");
+                "Invalid position (NaN/Inf), using last valid target with decayed conf=%.2f",
+                filtered_target_.confidence);
             return BT::NodeStatus::SUCCESS;
         }
         // 数据清洗节点：始终返回SUCCESS，输出confidence=0.0让confidence_hysteresis判断
@@ -97,10 +100,11 @@ BT::NodeStatus EnemyPositionFilter::tick()
         // 0值：保持上一次的有效位置
         if (initialized_) {
             // 关键配合：当串口节点的置信度预测输出0值时，
-            // 这里保持最后一次有效坐标，让ArmorToGoal继续使用
+            // 这里保持最后一次有效坐标，但重新计算衰减后的confidence
+            filtered_target_.confidence = calculateDecayedConfidence();
             RCLCPP_DEBUG(rclcpp::get_logger("EnemyPositionFilter"),
-                "Zero value detected, keeping last valid position [%.2f, %.2f]",
-                filtered_position_.x, filtered_position_.y);
+                "Zero value detected, keeping last valid position [%.2f, %.2f], decayed conf=%.2f",
+                filtered_position_.x, filtered_position_.y, filtered_target_.confidence);
             setOutput("filtered_position", filtered_target_);
             return BT::NodeStatus::SUCCESS;
         }
@@ -120,7 +124,8 @@ BT::NodeStatus EnemyPositionFilter::tick()
             enemy_position.position.x, enemy_position.position.y,
             filtered_position_.x, filtered_position_.y);
 
-        // 输出当前滤波值 (保持原始元数据)
+        // 输出当前滤波值 (保持原始元数据)，重新计算衰减后的confidence
+        filtered_target_.confidence = calculateDecayedConfidence();
         setOutput("filtered_position", filtered_target_);
 
         // 记录原始值到历史（用于后续判断）

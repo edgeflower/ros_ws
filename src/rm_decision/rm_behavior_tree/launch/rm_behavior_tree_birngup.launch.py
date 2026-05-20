@@ -20,13 +20,13 @@ def generate_launch_description():
     
     style_cmd = DeclareLaunchArgument(
             'style',
-            default_value="RMUL2026_fang_车", # attack_robot  defense_robot  test1 test2 test3  demo_multi_nav  demo_patrol_loop follow
+            default_value="RMUL2026车", # attack_robot  defense_robot  test1 test2 test3  demo_multi_nav  demo_patrol_loop follow RMUL2026_fang_车 RMUL2026车
             description="选取哪一个进攻防御方式  map1  test0	test test2	rmul2025_01 test3 "
         )
 
     use_sim_time_cmd = DeclareLaunchArgument(
             'use_sim_time',
-            default_value="true",
+            default_value="false",
             description="是否启用ros模拟时间"
         )
     

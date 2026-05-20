@@ -10,7 +10,13 @@ class SaveMapTriggerNode(Node):
     def __init__(self):
         super().__init__("save_map_trigger_node")
 
+        # 上一次 /start_save_map 的状态
+        # 用于检测 false -> true 的上升沿
         self.last_state = False
+
+        # 命令执行成功后设置为 True
+        # main() 检测到后会退出节点
+        self.should_exit = False
 
         self.sub = self.create_subscription(
             Bool,
@@ -45,9 +51,12 @@ class SaveMapTriggerNode(Node):
                     self.get_logger().warn(f"stderr:\n{result.stderr}")
 
                 if result.returncode == 0:
-                    self.get_logger().info("保存地图命令执行成功")
+                    self.get_logger().info("保存地图命令执行成功，节点即将退出")
+
+                    # 执行成功后退出
+                    self.should_exit = True
                 else:
-                    self.get_logger().error("保存地图命令执行失败")
+                    self.get_logger().error("保存地图命令执行失败，节点继续等待下一次触发")
 
             except Exception as e:
                 self.get_logger().error(f"执行保存地图命令异常: {e}")
@@ -61,12 +70,20 @@ def main(args=None):
     node = SaveMapTriggerNode()
 
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
+        # 不使用 rclpy.spin(node)
+        # 因为 spin 会一直阻塞，不方便在命令成功后主动退出
+        while rclpy.ok() and not node.should_exit:
+            rclpy.spin_once(node, timeout_sec=0.1)
 
-    node.destroy_node()
-    rclpy.shutdown()
+    except KeyboardInterrupt:
+        node.get_logger().info("收到 Ctrl+C，节点退出")
+
+    finally:
+        node.get_logger().info("正在销毁节点并关闭 rclpy")
+        node.destroy_node()
+
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

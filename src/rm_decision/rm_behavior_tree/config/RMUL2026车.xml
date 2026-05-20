@@ -63,7 +63,7 @@
                           stop_chassis_vel_multi="True"
                           track_status="false"
                           perception_status="True"/>
-            <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/回家.csv"
+            <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/回家.csv"
                            frame_id="map"
                            waypoints="{waypoints}"
                            wait_times="{wait_times}"
@@ -147,7 +147,7 @@
                           stop_chassis_vel_multi="True"
                           track_status="False"
                           perception_status="False"/>
-            <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/自己半场巡逻.csv"
+            <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/自己半场巡逻.csv"
                            frame_id="map"
                            waypoints="{waypoints_high}"
                            wait_times="{wait_times_high}"
