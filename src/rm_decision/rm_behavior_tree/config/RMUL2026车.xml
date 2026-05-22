@@ -48,7 +48,7 @@
         <ReactiveSequence>
           <Inverter>
             <IsStatusOK message="{robot_status}"
-                        hp_threshold="160"
+                        hp_threshold="300"
                         heat_threshold="0"
                         shot_threshold="10"/>
           </Inverter>

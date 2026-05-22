@@ -1,0 +1,10 @@
+<library path="polygon_keepout_layer">
+  <class
+    name="rm_keepout_costmap_layer::PolygonKeepoutLayer"
+    type="rm_keepout_costmap_layer::PolygonKeepoutLayer"
+    base_class_type="nav2_costmap_2d::Layer">
+    <description>
+      Polygon keepout layer for Nav2. Reads forbidden areas from YAML and marks them as lethal obstacles.
+    </description>
+  </class>
+</library>
