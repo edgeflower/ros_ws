@@ -25,6 +25,7 @@ bool RobotControlAction::setMessage(rm_decision_interfaces::msg::RobotControl & 
   }else{
     getInput("chassis_vel_multi",msg.chassis_vel_multi);  // 底盘倍率 对于速度，仅需要0~1倍率
   }
+  getInput("start_gimbal_big_spin", msg.start_gimbal_big_spin);  // 是否启动大云台旋转
   
 
 

@@ -122,6 +122,7 @@ private:
     double gimbal_yaw_smooth_alpha_ { 0.3 };
     bool nav_status_ = false;
     std::string robot_area_name_;
+    bool start_gimbal_big_spin_ { false };
 
     // Odometry parameters
     std::string odom_topic_;

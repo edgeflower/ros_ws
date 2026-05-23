@@ -2,15 +2,30 @@
 <root BTCPP_format="4"
       main_tree_to_execute="follow">
   <BehaviorTree ID="follow">
-    <RobotControl stop_gimbal_scan="True"
-                  chassis_spin_vel="0.0"
-                  gimbal_big_yaw_vel="0.0"
-                  gimbal_big_yaw_angle="0.0"
-                  follow_gimbal_big="true"
-                  chassis_vel_multi="1.0"
-                  stop_chassis_vel_multi="True"
-                  track_status="True"
-                  perception_status="True"/>
+    <Sequence>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.0"
+                    gimbal_big_yaw_vel="0.0"
+                    gimbal_big_yaw_angle="0.0"
+                    follow_gimbal_big="false"
+                    chassis_vel_multi="1.0"
+                    stop_chassis_vel_multi="True"
+                    track_status="True"
+                    perception_status="True"
+                    start_gimbal_big_spin="False"/>
+      <Wait duration="10"/>
+      <RobotControl stop_gimbal_scan="True"
+                    chassis_spin_vel="0.0"
+                    gimbal_big_yaw_vel="0.0"
+                    gimbal_big_yaw_angle="0.0"
+                    follow_gimbal_big="false"
+                    chassis_vel_multi="1.0"
+                    stop_chassis_vel_multi="True"
+                    track_status="True"
+                    perception_status="True"
+                    start_gimbal_big_spin="True"/>
+      <Wait duration="10"/>
+    </Sequence>
   </BehaviorTree>
 
   <!-- Description of Node Models (used by Groot) -->
@@ -34,6 +49,13 @@
                   default="false"/>
       <input_port name="perception_status"
                   default="True"/>
+      <input_port name="start_gimbal_big_spin"
+                  default="False"/>
+    </Action>
+    <Action ID="Wait"
+            editable="true">
+      <input_port name="duration"
+                  default="3"/>
     </Action>
   </TreeNodesModel>
 

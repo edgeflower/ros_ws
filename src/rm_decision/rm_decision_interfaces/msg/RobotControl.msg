@@ -8,3 +8,4 @@ bool follow_gimbal_big  # 底盘跟随 false 不跟随   true 跟随
 float32 chassis_vel_multi # 底盘倍率 对于速度，仅需要0~1倍率
 bool track_status # 是否启动履带 false 不启动 true 启动
 bool perception_status # 大云台是否跟随全向感知 false 不跟随 true 跟随  默认跟随
+bool start_gimbal_big_spin # 是否旋转大云台 false 不旋转 true 旋转 默认不旋转

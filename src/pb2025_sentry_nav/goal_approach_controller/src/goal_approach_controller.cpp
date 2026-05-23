@@ -8,6 +8,7 @@
 #include <string>
 
 #include "nav2_core/controller.hpp"
+#include "tf2/utils.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
@@ -131,8 +132,11 @@ public:
       // 近距离直接驱动模式：绕过 MPPI 的弧线输出，直接朝目标点走
       double target_speed = std::min(approach_velocity_, dist * direct_approach_kp_);
       if (dist > 0.01) {
-        cmd.twist.linear.x = target_speed * (dx / dist);
-        cmd.twist.linear.y = target_speed * (dy / dist);
+        double global_vx = target_speed * (dx / dist);
+        double global_vy = target_speed * (dy / dist);
+        double yaw = tf2::getYaw(pose.pose.orientation);
+        cmd.twist.linear.x = global_vx * std::cos(yaw) + global_vy * std::sin(yaw);
+        cmd.twist.linear.y = -global_vx * std::sin(yaw) + global_vy * std::cos(yaw);
       } else {
         cmd.twist.linear.x = 0.0;
         cmd.twist.linear.y = 0.0;

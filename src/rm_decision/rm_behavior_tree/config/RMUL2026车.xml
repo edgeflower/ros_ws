@@ -62,7 +62,8 @@
                           chassis_vel_multi="1.0"
                           stop_chassis_vel_multi="True"
                           track_status="false"
-                          perception_status="True"/>
+                          perception_status="True"
+                          start_gimbal_big_spin="False"/>
             <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/回家.csv"
                            frame_id="map"
                            waypoints="{waypoints}"
@@ -96,7 +97,8 @@
                         chassis_vel_multi="1.0"
                         stop_chassis_vel_multi="True"
                         track_status="false"
-                        perception_status="True"/>
+                        perception_status="True"
+                        start_gimbal_big_spin="False"/>
           <ArmorToGoal target_message="{filtered_target}"
                        robot_pose="{robot_pose}"
                        offset_distance="2.0"
@@ -123,7 +125,8 @@
                         chassis_vel_multi="1.0"
                         stop_chassis_vel_multi="True"
                         track_status="false"
-                        perception_status="True"/>
+                        perception_status="True"
+                        start_gimbal_big_spin="False"/>
           <HoldPosition target="{filtered_target}"
                         enabled="true"
                         robot_pose="{robot_pose}"
@@ -146,7 +149,8 @@
                           chassis_vel_multi="1.0"
                           stop_chassis_vel_multi="True"
                           track_status="False"
-                          perception_status="False"/>
+                          perception_status="False"
+                          start_gimbal_big_spin="False"/>
             <LoadWaypoints waypoint_file="/home/sentry/Desktop/ros_ws/csv/自己半场巡逻.csv"
                            frame_id="map"
                            waypoints="{waypoints_high}"
@@ -165,9 +169,31 @@
                                frame_id="map"
                                min_pub_interval_ms="500"/>
                   <WaitUntilReached goal_pose="{current_goal_high}"
-                                    tolerance="0.5"/>
+                                    tolerance="1.0"/>
                 </ReactiveSequence>
                 <WaitDuration duration_sec="{current_wait_sec_high}"/>
+                <Wait duration="4"/>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="0.0"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="0.0"
+                              follow_gimbal_big="False"
+                              chassis_vel_multi="1.0"
+                              stop_chassis_vel_multi="True"
+                              track_status="False"
+                              perception_status="False"
+                              start_gimbal_big_spin="True"/>
+                <Wait duration="15"/>
+                <RobotControl stop_gimbal_scan="True"
+                              chassis_spin_vel="0.0"
+                              gimbal_big_yaw_vel="0.0"
+                              gimbal_big_yaw_angle="0.0"
+                              follow_gimbal_big="False"
+                              chassis_vel_multi="1.0"
+                              stop_chassis_vel_multi="True"
+                              track_status="False"
+                              perception_status="False"
+                              start_gimbal_big_spin="False"/>
                 <NextWaypoint wp_idx="{wp_idx_high}"
                               total_waypoints="{total_wp_high}"/>
               </Sequence>
@@ -358,6 +384,8 @@
                   default="false"/>
       <input_port name="perception_status"
                   default="True"/>
+      <input_port name="start_gimbal_big_spin"
+                  default="False"/>
     </Action>
     <Action ID="SendGoal">
       <input_port name="goal_pose"

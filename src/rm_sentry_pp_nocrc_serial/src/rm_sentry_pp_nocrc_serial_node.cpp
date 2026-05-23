@@ -209,6 +209,9 @@ void Node::onRobotControl(const rm_decision_interfaces::msg::RobotControl& msg)
     // follow_gimbal_big_ = msg.follow_gimbal_big;
     // track_status_ = msg.track_status;
     // perception_status_ = msg.perception_status;
+    start_gimbal_big_spin_ = msg.start_gimbal_big_spin;
+    RCLCPP_DEBUG(get_logger(), "Received RobotControl: start_gimbal_big_spin=%d",
+                 start_gimbal_big_spin_);
     tx_pending_ = true;
 }
 
@@ -1180,6 +1183,7 @@ void Node::txLoop()
                 pkt.data.follow_gimbal_big = follow_gimbal_big_;
                 pkt.data.track_status = track_status_;
                 pkt.data.perception_status = perception_status_;
+                pkt.data.start_gimbal_big_spin = start_gimbal_big_spin_;
                 pkt.eof = rm_sentry_pp::HeaderFrame::EoF();
             }
 
