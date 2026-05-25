@@ -36,10 +36,14 @@ class SaveMapTriggerNode(Node):
 
             try:
                 result = subprocess.run(
-                    ["./set_param.sh", "save_map", "1"],
-                    cwd="/home/sentry/Desktop/ros_ws/src/odin_ros_driver",
-                    capture_output=True,
-                    text=True
+                "source /opt/ros/humble/setup.bash && "
+                "source /home/sentry/Desktop/ros_ws/install/setup.bash && "
+                "cd /home/sentry/Desktop/ros_ws/src/odin_ros_driver && "
+                "./set_param.sh save_map 1",
+                shell=True,
+                executable="/bin/bash",
+                capture_output=True,
+                text=True
                 )
 
                 self.get_logger().info(f"returncode: {result.returncode}")
