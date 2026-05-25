@@ -3,6 +3,7 @@
 
 import os
 import time
+import subprocess
 from datetime import datetime
 
 import rclpy
@@ -46,12 +47,10 @@ class OdinCloudToPCD(Node):
         # 3. 点云过滤与降采样参数
         # ============================================================
 
-        # 单帧体素降采样尺寸，单位 m
-        # 每收到一帧点云，先对这一帧做一次降采样
+        # 单帧体素降采样，单位 m
         self.frame_voxel_size = 0.03
 
-        # 全局地图体素降采样尺寸，单位 m
-        # 多帧点云累积后，对全局点云再降采样
+        # 全局体素降采样，单位 m
         self.global_voxel_size = 0.05
 
         # 高度过滤范围
@@ -64,12 +63,20 @@ class OdinCloudToPCD(Node):
         self.min_z = -10.0
         self.max_z = 2.0
 
-        # 全局点云超过这个数量时，自动做一次全局降采样
-        # 防止内存一直增长
+        # 全局点数超过这个数量时，强制全局降采样
         self.max_global_points_before_downsample = 800000
 
-        # 每接收多少帧打印一次状态
+        # 每多少帧做一次周期性全局降采样
+        self.global_downsample_every_n_frames = 50
+
+        # 每多少帧打印一次状态
         self.log_every_n_frames = 30
+
+        # PCD 是否压缩保存
+        self.pcd_compressed = True
+
+        # 保存完成后是否自动退出
+        self.exit_after_save = True
 
         # ============================================================
         # 4. 状态变量
@@ -114,7 +121,10 @@ class OdinCloudToPCD(Node):
         self.get_logger().info(f'接收点云话题: {self.cloud_topic}')
         self.get_logger().info(f'保存触发话题: {self.trigger_topic}')
         self.get_logger().info(f'PCD 保存目录: {self.output_dir}')
-        self.get_logger().info('正在一边接收点云，一边过滤、降采样、累积')
+        self.get_logger().info(f'单帧降采样: {self.frame_voxel_size} m')
+        self.get_logger().info(f'全局降采样: {self.global_voxel_size} m')
+        self.get_logger().info(f'高度过滤: {self.min_z} <= z <= {self.max_z}')
+        self.get_logger().info(f'PCD 压缩保存: {self.pcd_compressed}')
         self.get_logger().info('收到 /start_save_map=true 后，将保存 PCD 并退出')
 
     def cloud_callback(self, msg: PointCloud2):
@@ -124,10 +134,10 @@ class OdinCloudToPCD(Node):
         每收到一帧 PointCloud2：
         1. 读取 x y z
         2. 过滤 NaN
-        3. 过滤过高点
-        4. 对当前帧做体素降采样
-        5. 加入全局点云
-        6. 全局点云太大时，再整体降采样
+        3. 过滤高度
+        4. 单帧降采样
+        5. 累积到全局点云
+        6. 周期性全局降采样
         """
 
         # 如果已经触发保存，就不要再处理新点云
@@ -178,20 +188,19 @@ class OdinCloudToPCD(Node):
         # 如果全局点云数量太大，做一次全局降采样
         global_points_num = len(self.global_cloud.points)
 
+        # 点数过大时强制全局降采样
         if global_points_num > self.max_global_points_before_downsample:
-            self.get_logger().info(
-                f'全局点数达到 {global_points_num}，开始全局降采样'
+            self.downsample_global_cloud(
+                reason=f'全局点数超过阈值 {self.max_global_points_before_downsample}'
             )
 
-            self.global_cloud = self.global_cloud.voxel_down_sample(
-                voxel_size=self.global_voxel_size
+        # 周期性全局降采样
+        if self.frame_count % self.global_downsample_every_n_frames == 0:
+            self.downsample_global_cloud(
+                reason=f'周期性降采样，每 {self.global_downsample_every_n_frames} 帧'
             )
 
-            self.get_logger().info(
-                f'全局降采样后点数: {len(self.global_cloud.points)}'
-            )
-
-        # 定期打印当前状态
+        # 定期打印状态
         if self.frame_count % self.log_every_n_frames == 0:
             elapsed = time.time() - self.start_time
 
@@ -201,14 +210,46 @@ class OdinCloudToPCD(Node):
                 f'运行时间: {elapsed:.1f}s'
             )
 
+    def downsample_global_cloud(self, reason: str = ''):
+        """
+        对全局点云做体素降采样。
+
+        作用：
+        - 减少重复点
+        - 降低内存
+        - 缩短最终保存时间
+        """
+
+        before_num = len(self.global_cloud.points)
+
+        if before_num == 0:
+            return
+
+        if reason:
+            self.get_logger().info(f'开始全局降采样，原因: {reason}')
+        else:
+            self.get_logger().info('开始全局降采样')
+
+        self.global_cloud = self.global_cloud.voxel_down_sample(
+            voxel_size=self.global_voxel_size
+        )
+
+        after_num = len(self.global_cloud.points)
+
+        self.get_logger().info(
+            f'全局降采样完成: {before_num} -> {after_num}'
+        )
+
     def trigger_callback(self, msg: Bool):
         """
         /start_save_map 触发回调。
 
-        当收到 true 后：
-        1. 停止继续处理新点云
-        2. 保存当前全局点云
-        3. 设置退出标志
+        data == true 时：
+        1. 停止处理新点云
+        2. 保存 PCD
+        3. 检查文件
+        4. sync 刷盘
+        5. 退出节点
         """
 
         # 只响应 true
@@ -217,41 +258,89 @@ class OdinCloudToPCD(Node):
 
         # 防止重复触发
         if self.saving:
+            self.get_logger().warn('正在保存 PCD，忽略重复触发')
             return
 
         self.saving = True
 
         self.get_logger().info('收到 /start_save_map=true，开始保存 PCD')
 
-        self.save_pcd()
+        success = self.save_pcd()
 
-        self.get_logger().info('保存流程结束，节点即将退出')
+        if success:
+            self.get_logger().info('PCD 保存流程成功结束')
+        else:
+            self.get_logger().error('PCD 保存流程失败')
 
-        self.should_exit = True
+        if self.exit_after_save:
+            self.should_exit = True
 
-    def save_pcd(self):
+    def wait_file_ready(self, file_path: str, timeout_sec: float = 10.0) -> bool:
+        """
+        等待文件真正生成，并且大小大于 0。
+
+        防止：
+        - 文件刚创建但还没写入
+        - 文件存在但是 0KB
+        """
+
+        start_time = time.time()
+
+        while time.time() - start_time < timeout_sec:
+
+            if os.path.exists(file_path):
+                size = os.path.getsize(file_path)
+
+                if size > 0:
+                    self.get_logger().info(
+                        f'文件已生成: {file_path}, size={size} bytes'
+                    )
+                    return True
+
+                self.get_logger().warn(
+                    f'文件存在但大小为 0，继续等待: {file_path}'
+                )
+
+            time.sleep(0.2)
+
+        return False
+
+    def save_pcd(self) -> bool:
         """
         保存 PCD 文件。
 
-        文件名按照当前系统时间自动生成，例如：
-        odin1_map_20260520_153012.pcd
+        保存流程：
+        1. 检查当前全局点云是否为空
+        2. 保存前最后全局降采样
+        3. 写入 PCD
+        4. 检查文件大小
+        5. sync 强制刷盘
+        6. 延迟等待
         """
+        # 是否保存成功后自动关机
+        self.auto_poweroff = True
+
+# 保存成功后延迟几秒再关机
+        self.poweroff_delay_sec = 20.0
 
         point_num = len(self.global_cloud.points)
 
         if point_num == 0:
             self.get_logger().error('当前没有任何有效点云，无法保存 PCD')
-            return
+            return False
 
         self.get_logger().info(f'保存前全局点数: {point_num}')
 
-        # 保存前最后再做一次全局降采样
-        # 这样可以去掉不同帧之间重复累积的点
+        # 保存前最后再全局降采样一次
         final_cloud = self.global_cloud.voxel_down_sample(
             voxel_size=self.global_voxel_size
         )
 
         final_point_num = len(final_cloud.points)
+
+        if final_point_num == 0:
+            self.get_logger().error('最终降采样后点数为 0，无法保存 PCD')
+            return False
 
         self.get_logger().info(f'最终降采样后点数: {final_point_num}')
 
@@ -267,18 +356,107 @@ class OdinCloudToPCD(Node):
         # 拼接完整路径
         output_path = os.path.join(self.output_dir, filename)
 
-        # 保存 PCD
+        self.get_logger().info(f'开始保存 PCD: {output_path}')
+
         ok = o3d.io.write_point_cloud(
             output_path,
             final_cloud,
             write_ascii=False,
-            compressed=False
+            compressed=self.pcd_compressed
         )
 
-        if ok:
-            self.get_logger().info(f'PCD 保存成功: {output_path}')
+        if not ok:
+            self.get_logger().error('Open3D write_point_cloud 返回失败')
+            return False
+
+        self.get_logger().info('Open3D 写入完成，开始检查文件')
+
+        file_ok = self.wait_file_ready(
+            output_path,
+            timeout_sec=10.0
+        )
+
+        if not file_ok:
+            if os.path.exists(output_path):
+                size = os.path.getsize(output_path)
+                self.get_logger().error(f'PCD 文件异常，当前大小: {size} bytes')
+            else:
+                self.get_logger().error(f'PCD 文件不存在: {output_path}')
+
+            return False
+
+        try:
+            size_before_sync = os.path.getsize(output_path)
+            self.get_logger().info(
+                f'sync 前文件大小: {size_before_sync / 1024 / 1024:.2f} MB'
+            )
+        except Exception as e:
+            self.get_logger().warn(f'读取 sync 前文件大小失败: {e}')
+
+        self.get_logger().info('开始执行 sync，强制刷盘')
+
+        try:
+            sync_result = subprocess.run(
+                ['sync'],
+                capture_output=True,
+                text=True,
+                timeout=20
+            )
+
+            if sync_result.returncode != 0:
+                self.get_logger().error(
+                    f'sync 执行失败，返回码: {sync_result.returncode}'
+                )
+
+                if sync_result.stderr:
+                    self.get_logger().error(sync_result.stderr)
+
+                return False
+
+        except subprocess.TimeoutExpired:
+            self.get_logger().error('sync 超时，磁盘可能写入过慢')
+            return False
+
+        except Exception as e:
+            self.get_logger().error(f'sync 执行异常: {e}')
+            return False
+
+        self.get_logger().info('sync 完成，PCD 文件已尽量写入磁盘')
+
+        # 再等待几秒，避免刚 sync 完马上断电
+        time.sleep(3.0)
+
+        try:
+            final_size = os.path.getsize(output_path)
+            self.get_logger().info(
+                f'最终文件大小: {final_size / 1024 / 1024:.2f} MB'
+            )
+        except Exception as e:
+            self.get_logger().warn(f'读取最终文件大小失败: {e}')
+
+        self.get_logger().info(f'PCD 保存成功: {output_path}')
+        self.get_logger().info('现在可以安全关机')
+        if self.auto_poweroff:
+            self.get_logger().warn(
+            f'{self.poweroff_delay_sec} 秒后自动关机'
+        )
+
+        time.sleep(self.poweroff_delay_sec)
+
+        try:
+            subprocess.run(
+                ['sudo', 'systemctl', 'poweroff'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+        except Exception as e:
+            self.get_logger().error(f'自动关机失败: {e}')
+            return False
         else:
-            self.get_logger().error(f'PCD 保存失败: {output_path}')
+            self.get_logger().info('现在可以安全关机')
+
+        return True
 
 
 def main():

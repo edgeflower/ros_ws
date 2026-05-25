@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+import time
 from datetime import datetime
 
 import rclpy
@@ -63,6 +64,7 @@ class SlamToolboxMapSaver(Node):
         self.get_logger().info('收到 /start_save_map=true 后，将保存 slam_toolbox 地图并退出')
 
     def trigger_callback(self, msg: Bool):
+
         """
         /start_save_map 触发回调。
 
@@ -76,38 +78,57 @@ class SlamToolboxMapSaver(Node):
             return
 
         if self.saving:
+            self.get_logger().warn('正在保存地图，忽略重复触发')
             return
 
         self.saving = True
 
         self.get_logger().info('收到 /start_save_map=true，开始保存 slam_toolbox 地图')
 
-        self.save_map()
+        success = self.save_map()
 
-        self.get_logger().info('保存流程结束，节点即将退出')
+        if success:
+            self.get_logger().info('保存流程成功结束，节点即将退出')
+        else:
+            self.get_logger().error('保存流程失败，节点即将退出')
 
         self.should_exit = True
 
-    def save_map(self):
+    def wait_file_ready(self, file_path: str, timeout_sec: float = 5.0) -> bool:
         """
-        调用 nav2_map_server 的 map_saver_cli 保存地图。
+        等待文件真正生成，并且大小大于 0。
 
-        实际执行命令类似：
-
-        ros2 run nav2_map_server map_saver_cli -f /home/sentry/Desktop/ros_ws/slam_maps/slam_map_20260524_153012
-
-        注意：
-        - -f 后面不要写 .yaml
-        - map_saver_cli 会自动生成 .yaml 和 .pgm
+        主要用于防止：
+        - yaml 已生成
+        - pgm 文件存在
+        - 但是 pgm 还是 0KB
         """
 
+        start_time = time.time()
+
+        while time.time() - start_time < timeout_sec:
+            if os.path.exists(file_path):
+                size = os.path.getsize(file_path)
+
+                if size > 0:
+                    self.get_logger().info(f'文件已就绪: {file_path}, size={size} bytes')
+                    return True
+
+                self.get_logger().warn(f'文件存在但大小为 0，继续等待: {file_path}')
+
+            time.sleep(0.2)
+
+        return False
+
+    def save_map(self) -> bool:
         os.makedirs(self.output_dir, exist_ok=True)
 
         time_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-
         map_filename = f'{self.map_name_prefix}_{time_str}'
-
         output_path = os.path.join(self.output_dir, map_filename)
+
+        yaml_path = output_path + '.yaml'
+        pgm_path = output_path + '.pgm'
 
         cmd = [
             'ros2',
@@ -140,16 +161,58 @@ class SlamToolboxMapSaver(Node):
             if result.stderr:
                 self.get_logger().warn(result.stderr)
 
-            if result.returncode == 0:
-                self.get_logger().info(f'地图保存成功: {output_path}.yaml / {output_path}.pgm')
-            else:
-                self.get_logger().error(f'地图保存失败，返回码: {result.returncode}')
+            if result.returncode != 0:
+                self.get_logger().error(f'map_saver_cli 执行失败，返回码: {result.returncode}')
+                return False
+
+            self.get_logger().info('map_saver_cli 执行完成，开始检查地图文件')
+
+            yaml_ok = os.path.exists(yaml_path)
+            pgm_ok = self.wait_file_ready(pgm_path, timeout_sec=5.0)
+
+            if not yaml_ok:
+                self.get_logger().error(f'yaml 文件不存在: {yaml_path}')
+                return False
+
+            if not pgm_ok:
+                if os.path.exists(pgm_path):
+                    size = os.path.getsize(pgm_path)
+                    self.get_logger().error(f'pgm 文件异常，当前大小: {size} bytes')
+                else:
+                    self.get_logger().error(f'pgm 文件不存在: {pgm_path}')
+                return False
+
+            self.get_logger().info('地图文件检查通过')
+            self.get_logger().info(f'yaml: {yaml_path}')
+            self.get_logger().info(f'pgm : {pgm_path}')
+
+            self.get_logger().info('开始执行 sync，强制刷盘')
+
+            sync_result = subprocess.run(
+                ['sync'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if sync_result.returncode != 0:
+                self.get_logger().error(f'sync 执行失败，返回码: {sync_result.returncode}')
+                return False
+
+            self.get_logger().info('sync 完成，地图文件已尽量写入磁盘')
+
+            time.sleep(2.0)
+
+            self.get_logger().info('地图保存成功，可以安全关机')
+            return True
 
         except subprocess.TimeoutExpired:
             self.get_logger().error('地图保存超时，map_saver_cli 可能没有收到 /map')
+            return False
 
         except Exception as e:
             self.get_logger().error(f'执行保存地图命令异常: {e}')
+            return False
 
 
 def main():
